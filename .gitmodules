@@ -1,0 +1,24 @@
+[submodule "tb/cpp/elfio"]
+	path = tb/cpp/elfio
+	url = https://github.com/serge1/ELFIO.git
+[submodule "ips/nox"]
+	path = ips/nox
+	url = git@github.com:aignacio/nox.git
+[submodule "ips/axi_dma"]
+	path = ips/axi_dma
+	url = git@github.com:aignacio/axi_dma.git
+[submodule "ips/verilog-axi-aignacio"]
+	path = ips/verilog-axi-aignacio
+	url = https://github.com/aignacio/verilog-axi
+[submodule "ips/soc_components"]
+	path = ips/soc_components
+	url = git@github.com:aignacio/soc_components.git
+[submodule "ips/ravenoc"]
+	path = ips/ravenoc
+	url = https://github.com/aignacio/ravenoc.git
+[submodule "ips/bus_arch_sv_pkg"]
+	path = ips/bus_arch_sv_pkg
+	url = git@github.com:aignacio/bus_arch_sv_pkg.git
+[submodule "ips/ethernet_axi"]
+	path = ips/ethernet_axi
+	url = git@github.com:aignacio/ethernet_axi.git
