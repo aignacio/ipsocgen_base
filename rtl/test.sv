@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 26/03/2023 17:20:07
+ * Date              : 31/03/2023 23:23:51
  * Description       : Description of the MP/SoC to be generated
  * --------------------------------------------
  * ---- Do not edit, design auto-generated ----
@@ -19,15 +19,14 @@ module test
   output	logic	arty_a7_uart_tx
 );
 
+  logic clk_50MHz;
+  logic rst_int_soc;
   logic [31:0] rst_addr;
   logic irq_uart_rx;
-  logic arty_a7_uart_tx; // IO Pin
-  logic arty_a7_uart_rx; // IO Pin
   logic irq_mtimer;
   logic dma_done;
   logic dma_error;
   logic irq_ctrl_ext;
-  logic arty_a7_sw_1; // IO Pin
 
   //
   // Clk/PLL signals

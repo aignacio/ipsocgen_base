@@ -1,7 +1,6 @@
 PARALLEL_B		:=	4
 GTKWAVE_PRE		:=	/Applications/gtkwave.app/Contents/Resources/bin/
 PROJECT_NAME  :=	test # Add your project name here
-REQ_BOOT_ROM	:=	0
 WAVEFORM_USE	:=	1
 
 # Common IP Design files
@@ -35,9 +34,7 @@ _SRC_VERILOG 	+=	$(shell find ips/axi_dma/csr_out 					 									-type f -iname 
 _SRC_VERILOG 	+=	$(shell find ips/axi_dma/rggen-verilog-rtl 									-type f -iname *.v	-maxdepth 1)
 _SRC_VERILOG 	+=	$(shell find ips/axi_dma/rtl							 									-type f -iname *.sv -maxdepth 1)
 # 7) Boot ROM
-ifeq ($(REQ_BOOT_ROM),1)
-_SRC_VERILOG 	+=	$(shell find sw/bootloader								 									-type f -iname *.sv)
-endif
+_SRC_VERILOG 	+=	sw/bootloader/output/boot_rom.sv
 # 8) AXI UART
 _SRC_VERILOG 	+=	ips/soc_components/wbuart32/rtl/axiluart.v
 _SRC_VERILOG 	+=	ips/soc_components/wbuart32/rtl/rxuart.v
@@ -139,7 +136,10 @@ $(VERILATOR_EXE): $(OUT_VERILATOR)/V$(ROOT_MOD_VERI).mk
 $(OUT_VERILATOR)/V$(ROOT_MOD_VERI).mk: $(SRC_VERILOG) $(SRC_CPP) $(TB_VERILATOR)
 	$(RUN_CMD) verilator $(VERIL_ARGS)
 
-all: clean $(VERILATOR_EXE)
+sw/bootloader/output/boot_rom.sv:
+	make -C sw/bootloader all
+
+all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 	@echo "\n"
 	@echo "Design build done, run as follow:"
 	@echo "$(VERILATOR_EXE) -h"
