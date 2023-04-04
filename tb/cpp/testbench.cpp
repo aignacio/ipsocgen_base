@@ -13,16 +13,15 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include "verilated_fst_c.h"
-#include "Vmpsoc.h"
-#include "Vmpsoc__Syms.h"
+#include "Vtest.h"
+#include "Vtest__Syms.h"
 
 #define STRINGIZE(x) #x
 #define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
 
 using namespace std;
 unsigned long tick_counter;
-fstream master_tile_log;
-fstream slave_tile_log;
+fstream soc_log;
 
 template<class module> class testbench {
   VerilatedFstC *trace = new VerilatedFstC;
@@ -44,14 +43,6 @@ template<class module> class testbench {
 
     virtual void reset(int rst_cyc) {
       core->uart_rx_i       = 0;
-      core->bootloader_i    = 0;
-      core->rst_cpu         = 0;
-      core->uart_switch_i   = 0;
-      core->phy_rx_clk      = 0;
-      core->phy_rxd         = 0;
-      core->phy_rx_ctl      = 0;
-      core->phy_int_n       = 0;
-      core->phy_pme_n       = 0;
 
       for (int i=0;i<rst_cyc;i++) {
         core->rst_cpu = 1;
@@ -82,7 +73,7 @@ template<class module> class testbench {
       //core->uart_rx_i = rand()%10;
       if (core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->printfbufferReq()) {
         master = core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->getbufferReq();
-        master_tile_log << master;
+        soc_log << master;
         //printf("%c",core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->getbufferReq());
       }
 
@@ -300,10 +291,10 @@ int main(int argc, char** argv, char** env){
     }
   }
 
-  master_tile_log.open("master_tile_log.txt", ios::out);
+  soc_log.open("soc_log.txt", ios::out);
   slave_tile_log.open("slave_tile_log.txt", ios::out);
 
-  if (!master_tile_log || !slave_tile_log) {
+  if (!soc_log || !slave_tile_log) {
     cout << "Log files not created!" << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -313,7 +304,7 @@ int main(int argc, char** argv, char** env){
     dut->tick();
   }
 
-  master_tile_log.close();
+  soc_log.close();
   slave_tile_log.close();
 
   cout << "\n[SIM Summary]" << std::endl;

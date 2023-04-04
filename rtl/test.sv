@@ -2,14 +2,15 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 31/03/2023 23:23:51
+ * Date              : 02/04/2023 12:24:47
  * Description       : Description of the MP/SoC to be generated
- * --------------------------------------------
- * ---- Do not edit, design auto-generated ----
- * --------------------------------------------
+ * -------------------------------------------
+ * -- Design AUTO-GENERATED using IPSoC Gen --
+ * -------------------------------------------
  **/
 
 module test
+  import amba_axi_pkg::*;
 (
   input		logic	arty_a7_100MHz,
   input		logic	arty_a7_sw_0,
@@ -40,6 +41,10 @@ module test
   
   assign rst_pll = ~arty_a7_sw_0;
   
+
+`ifdef SIMULATION
+  assign clk_50MHz = arty_a7_100MHz;
+`else
   //
   // PLLE2_BASE: Base Phase Locked Loop (PLL)
   //             7 Series
@@ -89,7 +94,7 @@ module test
     .I (clk_buff_out),
     .O (clk_50MHz)
   );
-
+`endif
   
 // Master ID  Description
 // 0          NoX CPU - Instr. I/F
@@ -102,11 +107,11 @@ module test
 // 1         0x10000    0x17fff   32          Data RAM
 // 2         0x18000    0x1ffff   32          Boot ROM image
 // 3         0x20000    0x21fff   8           UART Serial IP
-// 4         0x22000    0x23fff   8           Machine Timer (mtimer)
-// 5         0x24000    0x25fff   8           DMA Engine Control CSRs
+// 4         0x22000    0x23fff   8           Machine Timer
+// 5         0x24000    0x25fff   8           DMA Engine CSRs
 // 6         0x26000    0x27fff   8           IRQ Controller
 // 7         0x28000    0x29fff   8           Reset Controller
-// 8         0x2a000    0x2bfff   8           My custom accelerator
+// 8         0x2a000    0x2bfff   8           My custom acc
 
   s_axi_mosi_t  [3:0] masters_axi_mosi;
   s_axi_miso_t  [3:0] masters_axi_miso;
@@ -239,7 +244,7 @@ module test
   );
 
   //
-  // Machine Timer (mtimer)
+  // Machine Timer
   //
   axi_timer #(
     .BASE_ADDR        ('h22000)
@@ -262,7 +267,7 @@ module test
   );
 
   //
-  // DMA Engine Control CSRs
+  // DMA Engine CSRs
   //
   dma_axi_wrapper #(
     .DMA_ID_VAL       (2)
@@ -280,7 +285,7 @@ module test
     .dma_error_o      (dma_error)
   );
 
-  logic irq_vector_mapping [31:0];
+  logic [31:0] irq_vector_mapping;
 
   assign irq_vector_mapping = '0; // Default assignment
   assign irq_vector_mapping[0] = dma_error;
@@ -327,7 +332,7 @@ module test
   // synthesis translate_on
 
   //
-  // My custom accelerator
+  // My custom acc
   //
   axi_custom_slave_acc #(
     .BASE_ADDR        ('h2a000)
