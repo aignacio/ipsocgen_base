@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 08/04/2023 11:31:36
+ * Date              : 08/04/2023 13:22:11
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -103,15 +103,15 @@ module test
 // 3          Custom Master ACC.
 
 // Slave ID  Base Addr  End Addr  Size (KiB)  Description
-// 0         0x0        0xffff    64          Instruction RAM
-// 1         0x10000    0x17fff   32          Data RAM
-// 2         0x18000    0x1ffff   32          Boot ROM image
-// 3         0x20000    0x21fff   8           UART Serial IP
-// 4         0x22000    0x23fff   8           Machine Timer
-// 5         0x24000    0x25fff   8           DMA Engine CSRs
-// 6         0x26000    0x27fff   8           IRQ Controller
-// 7         0x28000    0x29fff   8           Reset Controller
-// 8         0x2a000    0x2bfff   8           My custom acc
+// 0         0x0        0x3fff    16          Instruction RAM
+// 1         0x4000     0x5fff    8           Data RAM
+// 2         0x8000     0xffff    32          Boot ROM image
+// 3         0x10000    0x11fff   8           UART Serial IP
+// 4         0x12000    0x13fff   8           Machine Timer
+// 5         0x14000    0x15fff   8           DMA Engine CSRs
+// 6         0x16000    0x17fff   8           IRQ Controller
+// 7         0x18000    0x19fff   8           Reset Controller
+// 8         0x1a000    0x1bfff   8           My custom acc
 
   s_axi_mosi_t  [3:0] masters_axi_mosi;
   s_axi_miso_t  [3:0] masters_axi_miso;
@@ -127,14 +127,14 @@ module test
     .N_MASTERS        (4),
     .N_SLAVES         (9),
     .AXI_TID_WIDTH    (8),
-    .M_BASE_ADDR      ({32'h2a000,
-                        32'h28000,
-                        32'h26000,
-                        32'h24000,
-                        32'h22000,
-                        32'h20000,
+    .M_BASE_ADDR      ({32'h1a000,
                         32'h18000,
+                        32'h16000,
+                        32'h14000,
+                        32'h12000,
                         32'h10000,
+                        32'h8000,
+                        32'h4000,
                         32'h0}),
     .M_ADDR_WIDTH     ({32'd13,
                         32'd13,
@@ -143,8 +143,8 @@ module test
                         32'd13,
                         32'd13,
                         32'd15,
-                        32'd15,
-                        32'd16})
+                        32'd13,
+                        32'd14})
   ) u_axi4_crossbar (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),
@@ -180,7 +180,7 @@ module test
   // Instruction RAM
   //
   axi_mem_wrapper #(
-    .MEM_KB           (64),
+    .MEM_KB           (16),
     .ID_WIDTH         (8)
   ) u_iram (
     .clk              (clk_50MHz),
@@ -202,7 +202,7 @@ module test
   // Data RAM
   //
   axi_mem_wrapper #(
-    .MEM_KB           (32),
+    .MEM_KB           (8),
     .ID_WIDTH         (8)
   ) u_dram (
     .clk              (clk_50MHz),
@@ -247,7 +247,7 @@ module test
   // Machine Timer
   //
   axi_timer #(
-    .BASE_ADDR        ('h22000)
+    .BASE_ADDR        ('h12000)
   ) u_timer (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),
@@ -295,7 +295,7 @@ module test
   // IRQ Controller
   //
   axi_irq_ctrl #(
-    .BASE_ADDR        ('h26000),
+    .BASE_ADDR        ('h16000),
     .TYPE_OF_IRQ      ('hffffffff)
   ) u_irq_ctrl (
     .clk              (clk_50MHz),
@@ -311,7 +311,7 @@ module test
   //
   axi_rst_ctrl #(
     .RESET_VECTOR_ADDR ('h0),
-    .BASE_ADDR         ('h28000),
+    .BASE_ADDR         ('h18000),
     .RESET_PULSE_WIDTH (4)
   ) u_rst_ctrl  (
     .clk               (clk_50MHz),
@@ -335,7 +335,7 @@ module test
   // My custom acc
   //
   axi_custom_slave_acc #(
-    .BASE_ADDR        ('h2a000)
+    .BASE_ADDR        ('h1a000)
   ) u_acc_custom (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),

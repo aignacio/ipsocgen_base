@@ -61,7 +61,7 @@ void parse_input (int argc, char** argv, s_sim_setup_t *setup){
       setup->waves_timestamp = atoi(argv[i+1]);
     } else if ((arg == "-s") || (arg == "--sim")) {
       setup->sim_cycles = atoi(argv[i+1]);
-    } else if ((arg == "-em") || (arg == "--elf")) {
+    } else if ((arg == "-e") || (arg == "--elf")) {
       setup->elf_path = argv[i+1];
     }
   }

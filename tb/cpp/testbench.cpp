@@ -43,6 +43,8 @@ template<class module> class testbench {
 
     virtual void reset(int rst_cyc) {
       core->arty_a7_uart_rx = 0;
+      core->arty_a7_sw_0 = 0;
+      core->arty_a7_sw_1 = 0;
 
       for (int i=0;i<rst_cyc;i++) {
         core->arty_a7_rst_n = 0;
@@ -141,12 +143,8 @@ bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bo
                              ((uint8_t)p_seg->get_data()[p+1]<<8)+(uint8_t)p_seg->get_data()[p];
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
-          if (tile.type == MASTER){
-            sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
-          }
-          else{
-            sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
-          }
+          cout << "IRAM - Writing address [" << (p+init_addr) << "] Data [" << word_line << "]" << std::endl;
+          sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
         }
       }
     }
@@ -166,16 +164,13 @@ bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bo
                              ((uint8_t)p_seg->get_data()[p+1]<<8)+(uint8_t)p_seg->get_data()[p];
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
-          if (tile.type == MASTER){
-            sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
-          }
-          else {
-            sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
-          }
+          cout << "DRAM - Writing address [" << (p+init_addr) << "] Data [" << word_line << "]" << std::endl;
+          sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
         }
       }
     }
   }
+  cout << "Writing entry point [" << program.get_entry() << "]" << std::endl;
   sim->core->test->writeRstAddr___05Frst_ctrl(program.get_entry());
   cout << std::endl;
   return 0;
@@ -196,7 +191,7 @@ int main(int argc, char** argv, char** env){
 
   cout << "[SoC]" << std::endl;
 
-  cout << "Master Tile cfg:" << std::endl;
+  cout << "SoC cfg:" << std::endl;
   cout << "[IRAM] " << STRINGIZE_VALUE_OF(IRAM_KB_SIZE) << "KB" << std::endl;
   cout << "[DRAM] " << STRINGIZE_VALUE_OF(DRAM_KB_SIZE) << "KB" << std::endl;
 
@@ -216,7 +211,7 @@ int main(int argc, char** argv, char** env){
     tile.dram_kb_size = DRAM_KB_SIZE;
 
     if (loadELF(dut, setup.elf_path, tile, true)) {
-      cout << "\nError while processing Slave ELF file!" << std::endl;
+      cout << "\nError while processing ELF file!" << std::endl;
       exit(EXIT_FAILURE);
     }
   }

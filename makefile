@@ -21,19 +21,19 @@ _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_pkg.sv
 _SRC_VERILOG 	+=	ips/axi_dma/rtl/inc/dma_pkg.svh
 _SRC_VERILOG 	+=	ips/axi_dma/rtl/inc/dma_utils_pkg.sv
 # 2) RaveNoC files
-_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src															   -maxdepth 1 -type f -iname *.sv)
-_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/ni														   -maxdepth 1 -type f -iname *.sv ! -name 'async_gp_fifo.sv')
-_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/router												   -maxdepth 1 -type f -iname *.sv)
-# 3) Nox files                                                                           
-_SRC_VERILOG 	+=	$(shell find ips/nox/rtl																	   -maxdepth 1 -type f -iname *.sv)
-# 4) Verilog AXI modified                                                                
-_SRC_VERILOG 	+=	$(shell find ips/verilog-axi-aignacio/rtl	 								   -maxdepth 1 -type f -iname *.v)
-# 5) Different SoC components                                                            
-_SRC_VERILOG 	+=	$(shell find ips/soc_components 					 								   -maxdepth 1 -type f -iname *.sv)
+_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src							 -maxdepth 1 -type f -iname *.sv)
+_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/ni						 -maxdepth 1 -type f -iname *.sv ! -name 'async_gp_fifo.sv')
+_SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/router				 -maxdepth 1 -type f -iname *.sv)
+# 3) Nox files                                                         
+_SRC_VERILOG 	+=	$(shell find ips/nox/rtl									 -maxdepth 1 -type f -iname *.sv)
+# 4) Verilog AXI modified                                              
+_SRC_VERILOG 	+=	$(shell find ips/verilog-axi-aignacio/rtl	 -maxdepth 1 -type f -iname *.v)
+# 5) Different SoC components                                          
+_SRC_VERILOG 	+=	$(shell find ips/soc_components 					 -maxdepth 1 -type f -iname *.sv)
 # 6) AXI DMA
-_SRC_VERILOG 	+=	$(shell find ips/axi_dma/csr_out 					 								   -maxdepth 1 -type f -iname *.v)
-_SRC_VERILOG 	+=	$(shell find ips/axi_dma/rggen-verilog-rtl 								   -maxdepth 1 -type f -iname *.v)
-_SRC_VERILOG 	+=	$(shell find ips/axi_dma/rtl							 								   -maxdepth 1 -type f -iname *.sv)
+_SRC_VERILOG 	+=	$(shell find ips/axi_dma/csr_out 					 -maxdepth 1 -type f -iname *.v)
+_SRC_VERILOG 	+=	$(shell find ips/axi_dma/rggen-verilog-rtl -maxdepth 1 -type f -iname *.v)
+_SRC_VERILOG 	+=	$(shell find ips/axi_dma/rtl							 -maxdepth 1 -type f -iname *.sv)
 # 7) Boot ROM
 _SRC_VERILOG 	+=	sw/bootloader/output/boot_rom.sv
 # 8) AXI UART
@@ -44,13 +44,13 @@ _SRC_VERILOG 	+=	ips/soc_components/wbuart32/rtl/txuart.v
 _SRC_VERILOG 	+=	ips/soc_components/wbuart32/rtl/ufifo.v
 
 # 9) Ethernet AXI
-_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/csr_out												 -maxdepth 1 -type f -iname *.v)
-_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/rtl 													 -maxdepth 1 -type f -iname *.sv)
-_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/rtl 													 -maxdepth 1 -type f -iname *.v)
-_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/verilog-ethernet/lib/axis/rtl	 -maxdepth 1 -type f -iname *.v  ! -name 'priority_encoder.v' ! -name 'arbiter.v')
+_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/csr_out	-maxdepth 1 -type f -iname *.v)
+_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/rtl 		-maxdepth 1 -type f -iname *.sv)
+_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/rtl 		-maxdepth 1 -type f -iname *.v)
+_SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/verilog-ethernet/lib/axis/rtl	 -maxdepth 1 -type f -iname *.v ! -name 'priority_encoder.v' ! -name 'arbiter.v')
 _SRC_VERILOG 	+=	$(shell find ips/ethernet_axi/verilog-ethernet/rtl					 -maxdepth 1 -type f -iname *.v)
 # 10) RTL files from user
-_SRC_VERILOG 	+=	$(shell find rtl/													 -type f -iname *.sv)
+_SRC_VERILOG 	+=	$(shell find rtl/	-type f -iname *.sv)
 # Merge all files into a single variable
 SRC_VERILOG 	:=	$(_SRC_VERILOG)
 
@@ -66,10 +66,10 @@ _INCS_VLOG		+=	rtl
 INCS_VLOG			:=	$(addprefix -I,$(_INCS_VLOG))
 
 # Design parameters
-IRAM_KB_SIZE	?=	64
-DRAM_KB_SIZE	?=	32
-IRAM_ADDR			?=	0x000000000
-DRAM_ADDR			?=	0x00100000
+IRAM_KB_SIZE	?=	16
+DRAM_KB_SIZE	?=	8
+IRAM_ADDR			?=	0x00000000
+DRAM_ADDR			?=	0x00004000
 
 # Verilator info
 VERILATOR_TB	:=	tb
@@ -149,12 +149,15 @@ $(OUT_VERILATOR)/V$(ROOT_MOD_VERI).mk: $(SRC_VERILOG) $(SRC_CPP) $(TB_VERILATOR)
 sw/bootloader/output/boot_rom.sv:
 	make -C sw/bootloader all
 
+sw/hello_world/output/hello_world.elf:
+	make -C sw/hello_world all
+
 all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 	@echo "\n"
 	@echo "Design build done, run as follow:"
 	@echo "$(VERILATOR_EXE) -h"
 	@echo "\n"
 
-run: $(VERILATOR_EXE)
-	$(RUN_CMD) ./$(VERILATOR_EXE) -s 100000
+run: $(VERILATOR_EXE) sw/hello_world/output/hello_world.elf
+	$(RUN_CMD) ./$(VERILATOR_EXE) -s 200000 -e sw/hello_world/output/hello_world.elf
 
