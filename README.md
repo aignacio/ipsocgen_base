@@ -13,3 +13,23 @@ It is quite complex to have a generic project for a SoC because it requires you 
 5. The designs contains a boot ROM ([sw/bootloader](sw/bootloader)) program which is compiled before starting of design compilation once it is required in order to build the final SoC;
 6. User has access to docker and will compile the design using the provided images (requires internet);
 
+## SoC configuration
+
+```bash
+Master ID  Description
+0          NoX CPU - Instr. I/F
+1          NoX CPU - LSU I/F
+2          DMA Engine
+3          Custom Master ACC.
+                                                            
+Slave ID  Base Addr  End Addr  Size (KiB)  Description
+0         0x0        0xffff    64          Instruction RAM
+1         0x10000    0x17fff   32          Data RAM
+2         0x18000    0x1ffff   32          Boot ROM image
+3         0x20000    0x21fff   8           UART Serial IP
+4         0x22000    0x23fff   8           Machine Timer
+5         0x24000    0x25fff   8           DMA Engine CSRs
+6         0x26000    0x27fff   8           IRQ Controller
+7         0x28000    0x29fff   8           Reset Controller
+8         0x2a000    0x2bfff   8           My custom acc
+```

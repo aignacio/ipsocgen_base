@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 02/04/2023 12:24:47
+ * Date              : 08/04/2023 11:31:36
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -136,15 +136,15 @@ module test
                         32'h18000,
                         32'h10000,
                         32'h0}),
-    .M_ADDR_WIDTH     ({32'h13,
-                        32'h13,
-                        32'h13,
-                        32'h13,
-                        32'h13,
-                        32'h13,
-                        32'h15,
-                        32'h15,
-                        32'h16})
+    .M_ADDR_WIDTH     ({32'd13,
+                        32'd13,
+                        32'd13,
+                        32'd13,
+                        32'd13,
+                        32'd13,
+                        32'd15,
+                        32'd15,
+                        32'd16})
   ) u_axi4_crossbar (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),
