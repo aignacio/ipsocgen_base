@@ -1,6 +1,7 @@
 PARALLEL_B		:=	4
 GTKWAVE_PRE		:=	/Applications/gtkwave.app/Contents/Resources/bin/
-PROJECT_NAME  :=	test # Add your project name here
+# Add your project name here - Be careful to not add spaces after the name
+PROJECT_NAME  :=	test
 WAVEFORM_USE	:=	1
 
 # Common IP Design files
@@ -64,13 +65,18 @@ _INCS_VLOG		+=	ips/ethernet_axi/rtl/inc
 _INCS_VLOG		+=	rtl
 INCS_VLOG			:=	$(addprefix -I,$(_INCS_VLOG))
 
+# Design parameters
+IRAM_KB_SIZE	?=	64
+DRAM_KB_SIZE	?=	32
+IRAM_ADDR			?=	0x000000000
+DRAM_ADDR			?=	0x00100000
+
 # Verilator info
 VERILATOR_TB	:=	tb
 WAVEFORM_FST	:=	waves.fst
 OUT_VERILATOR	:=	output_verilator
 ROOT_MOD_VERI	:=	$(PROJECT_NAME)
 VERILATOR_EXE	:=	$(OUT_VERILATOR)/$(ROOT_MOD_VERI)
-VERI_EXE_SOC	:=	$(OUT_VERILATOR)/$(ROOT_MOD_SOC)
 
 # Testbench files
 SRC_CPP				:=	$(wildcard $(VERILATOR_TB)/cpp/testbench.cpp)
@@ -93,6 +99,10 @@ RUN_CMD				:=	docker run --rm --name ship_soc	\
 									/soc aignacio/mpsoc
 
 CPPFLAGS_VERI	:=	"$(INCS_CPP) -O0 -g3 -Wall					\
+									-DIRAM_KB_SIZE=\"$(IRAM_KB_SIZE)\"	\
+									-DDRAM_KB_SIZE=\"$(DRAM_KB_SIZE)\"	\
+									-DIRAM_ADDR=\"$(IRAM_ADDR)\"				\
+									-DDRAM_ADDR=\"$(DRAM_ADDR)\"				\
 									-DWAVEFORM_USE=\"$(WAVEFORM_USE)\"	\
 									-DWAVEFORM_FST=\"$(WAVEFORM_FST)\""
 									#-Wunknown-warning-option"

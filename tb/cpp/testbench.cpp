@@ -42,13 +42,13 @@ template<class module> class testbench {
     }
 
     virtual void reset(int rst_cyc) {
-      core->uart_rx_i       = 0;
+      core->arty_a7_uart_rx = 0;
 
       for (int i=0;i<rst_cyc;i++) {
-        core->rst_cpu = 1;
+        core->arty_a7_rst_n = 0;
         this->tick();
       }
-      core->rst_cpu = 0;
+      core->arty_a7_rst_n = 1;
       this->tick();
     }
 
@@ -69,27 +69,20 @@ template<class module> class testbench {
     }
 
     virtual void tick(void) {
-      char master, slave;
+      char buffer;
       //core->uart_rx_i = rand()%10;
-      if (core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->printfbufferReq()) {
-        master = core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->getbufferReq();
-        soc_log << master;
-        //printf("%c",core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->getbufferReq());
+      if (core->test->u_rst_ctrl->printfbufferReq()) {
+        buffer = core->test->u_rst_ctrl->getbufferReq();
+        soc_log << buffer;
       }
 
-      if (core->mpsoc->gen_tiles__BRA__1__KET____DOT__slave__DOT__u_slave_tile->u_rst_ctrl->printfbufferReq()) {
-        slave = core->mpsoc->gen_tiles__BRA__1__KET____DOT__slave__DOT__u_slave_tile->u_rst_ctrl->getbufferReq();
-        slave_tile_log << slave;
-        //printf("%c",core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->u_rst_ctrl->getbufferReq());
-      }
-
-      core->clk_in = 0;
+      core->arty_a7_100MHz = 0;
       core->eval();
       tick_counter++;
       if (tick_counter>(start_dumping*2))
         if(trace) trace->dump(tick_counter);
 
-      core->clk_in = 1;
+      core->arty_a7_100MHz = 1;
       core->eval();
       tick_counter++;
       if (tick_counter>(start_dumping*2))
@@ -101,7 +94,7 @@ template<class module> class testbench {
     }
 };
 
-bool loadELF(testbench<Vmpsoc> *sim, string program_path, s_tile_t tile, const bool en_print){
+bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bool en_print){
   ELFIO::elfio program;
 
   program.load(program_path);
@@ -149,24 +142,10 @@ bool loadELF(testbench<Vmpsoc> *sim, string program_path, s_tile_t tile, const b
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
           if (tile.type == MASTER){
-            sim->core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->writeWordIRAM((p+init_addr)/4,word_line);
+            sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
           }
           else{
-            sim->core->mpsoc->gen_tiles__BRA__1__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__2__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__3__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__4__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__5__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__6__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__7__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__8__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__9__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__10__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__11__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__12__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__13__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__14__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__15__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
+            sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
           }
         }
       }
@@ -188,75 +167,38 @@ bool loadELF(testbench<Vmpsoc> *sim, string program_path, s_tile_t tile, const b
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
           if (tile.type == MASTER){
-            sim->core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->writeWordDRAM((p+init_addr)/4,word_line);
+            sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
           }
           else {
-            sim->core->mpsoc->gen_tiles__BRA__1__KET____DOT__slave__DOT__u_slave_tile->writeWordDRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__2__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__3__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__4__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__5__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__6__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__7__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__8__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__9__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__10__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__11__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__12__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__13__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__14__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
-            //sim->core->mpsoc->gen_tiles__BRA__15__KET____DOT__slave__DOT__u_slave_tile->writeWordIRAM((p+init_addr)/4,word_line);
+            sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
           }
         }
       }
     }
   }
-  if (tile.type == MASTER){
-    sim->core->mpsoc->gen_tiles__BRA__0__KET____DOT__master__DOT__u_master_tile->writeRstAddr(program.get_entry());
-  }
-  else{
-    sim->core->mpsoc->gen_tiles__BRA__1__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__2__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__3__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__4__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__5__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__6__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__7__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__8__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__9__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__10__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__11__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__12__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__13__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__14__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-    //sim->core->mpsoc->gen_tiles__BRA__15__KET____DOT__slave__DOT__u_slave_tile->writeRstAddr(program.get_entry());
-  }
+  sim->core->test->writeRstAddr___05Frst_ctrl(program.get_entry());
   cout << std::endl;
   return 0;
 }
 
 int main(int argc, char** argv, char** env){
   Verilated::commandArgs(argc, argv);
-  auto *dut = new testbench<Vmpsoc>;
+  auto *dut = new testbench<Vtest>;
+  s_tile_t tile;
 
   s_sim_setup_t setup = {
     .sim_cycles = 1000,
     .waves_dump = WAVEFORM_USE,
     .waves_timestamp = 0,
     .waves_path = STRINGIZE_VALUE_OF(WAVEFORM_FST),
-    .elf_master_path = "",
-    .elf_slave_path = ""
+    .elf_path = ""
   };
 
   cout << "[SoC]" << std::endl;
 
   cout << "Master Tile cfg:" << std::endl;
-  cout << "[IRAM] " << STRINGIZE_VALUE_OF(MASTER_IRAM_KB_SIZE) << "KB" << std::endl;
-  cout << "[DRAM] " << STRINGIZE_VALUE_OF(MASTER_DRAM_KB_SIZE) << "KB" << std::endl;
-
-  cout << "Slave Tile cfg:" << std::endl;
-  cout << "[IRAM] " << STRINGIZE_VALUE_OF(SLAVE_IRAM_KB_SIZE) << "KB" << std::endl;
-  cout << "[DRAM] " << STRINGIZE_VALUE_OF(SLAVE_DRAM_KB_SIZE) << "KB" << std::endl;
+  cout << "[IRAM] " << STRINGIZE_VALUE_OF(IRAM_KB_SIZE) << "KB" << std::endl;
+  cout << "[DRAM] " << STRINGIZE_VALUE_OF(DRAM_KB_SIZE) << "KB" << std::endl;
 
   parse_input(argc, argv, &setup);
 
@@ -267,35 +209,22 @@ int main(int argc, char** argv, char** env){
 
   dut->init_dump_setpoint(setup.waves_timestamp);
 
-  if (!setup.elf_master_path.empty() && !setup.elf_slave_path.empty()){
-    tile.iram_addr    = MASTER_IRAM_ADDR;
-    tile.iram_kb_size = MASTER_IRAM_KB_SIZE;
-    tile.dram_addr    = MASTER_DRAM_ADDR;
-    tile.dram_kb_size = MASTER_DRAM_KB_SIZE;
-    tile.type         = MASTER;
+  if (!setup.elf_path.empty()){
+    tile.iram_addr    = IRAM_ADDR;
+    tile.iram_kb_size = IRAM_KB_SIZE;
+    tile.dram_addr    = DRAM_ADDR;
+    tile.dram_kb_size = DRAM_KB_SIZE;
 
-    if (loadELF(dut, setup.elf_master_path, tile, true)) {
-      cout << "\nError while processing Master ELF file!" << std::endl;
-      exit(EXIT_FAILURE);
-    }
-
-    tile.iram_addr    = SLAVE_IRAM_ADDR;
-    tile.iram_kb_size = SLAVE_IRAM_KB_SIZE;
-    tile.dram_addr    = SLAVE_DRAM_ADDR;
-    tile.dram_kb_size = SLAVE_DRAM_KB_SIZE;
-    tile.type         = SLAVE;
-
-    if (loadELF(dut, setup.elf_slave_path, tile, true)) {
+    if (loadELF(dut, setup.elf_path, tile, true)) {
       cout << "\nError while processing Slave ELF file!" << std::endl;
       exit(EXIT_FAILURE);
     }
   }
 
   soc_log.open("soc_log.txt", ios::out);
-  slave_tile_log.open("slave_tile_log.txt", ios::out);
 
-  if (!soc_log || !slave_tile_log) {
-    cout << "Log files not created!" << std::endl;
+  if (!soc_log ) {
+    cout << "Error while creating log files!" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -305,7 +234,7 @@ int main(int argc, char** argv, char** env){
   }
 
   soc_log.close();
-  slave_tile_log.close();
+  soc_log.close();
 
   cout << "\n[SIM Summary]" << std::endl;
   cout << "Clk cycles elapsed\t= " << (sim_cycles_timeout-(setup.sim_cycles+1)) << std::endl;

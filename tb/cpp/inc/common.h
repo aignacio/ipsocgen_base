@@ -22,16 +22,14 @@ typedef struct{
   int waves_dump;
   unsigned long waves_timestamp;
   string waves_path;
-  string elf_master_path;
-  string elf_slave_path;
+  string elf_path;
 } s_sim_setup_t;
 
 void show_usage(void) {
   cerr  << "Usage: "
         << "\t-h,--help\tShow this help message\n"
         << "\t-s,--sim\tSimulation cycles\n"
-        << "\t-em,--elf\tELF file to be loaded for the master tile\n"
-        << "\t-es,--elf\tELF file to be loaded for the slave tile\n"
+        << "\t-e,--elf\tELF file to be loaded in the SoC\n"
         << "\t-w,--waves_start\tClk cycles to start dumping waves\n"
         << std::endl;
 }
@@ -43,8 +41,7 @@ void show_summary(s_sim_setup_t *setup) {
         << "\n\tWaves enable: \t"    << setup->waves_dump
         << "\n\tEn. waves at: \t"    << setup->waves_timestamp
         << "\n\tWaves path:   \t"    << setup->waves_path
-        << "\n\tELF Master file:    \t"    << setup->elf_master_path
-        << "\n\tELF Slave file:     \t"    << setup->elf_slave_path
+        << "\n\tELF file:     \t"    << setup->elf_path
         << std::endl;
   cout  << "=================================================" << std::endl;
 }
@@ -64,10 +61,8 @@ void parse_input (int argc, char** argv, s_sim_setup_t *setup){
       setup->waves_timestamp = atoi(argv[i+1]);
     } else if ((arg == "-s") || (arg == "--sim")) {
       setup->sim_cycles = atoi(argv[i+1]);
-    } else if ((arg == "-em") || (arg == "--elf_master")) {
-      setup->elf_master_path = argv[i+1];
-    } else if ((arg == "-es") || (arg == "--elf_slave")) {
-      setup->elf_slave_path = argv[i+1];
+    } else if ((arg == "-em") || (arg == "--elf")) {
+      setup->elf_path = argv[i+1];
     }
   }
   show_summary(setup);
