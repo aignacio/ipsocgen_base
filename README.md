@@ -80,9 +80,9 @@ If you want to test a different design, some steps might be required to be perfo
   * The *testbench* ([tb/cpp/testbench.cpp](tb/cpp/testbench.cpp)) needs to be updated in different locations, try to search and replace *test* keyword by your project name, paying attention to not swap words like testbench;
 * If your design contains RAMs (Instr/Data) used by the CPU and you want to be able to load different programs (.elf), please update the following variables within the `makefile`
 ```bash
-IRAM_KB_SIZE	?=	16
-DRAM_KB_SIZE	?=	8
-IRAM_ADDR		?=	0x00000000
-DRAM_ADDR		?=	0x00004000
+IRAM_KB_SIZE  ?=	16
+DRAM_KB_SIZE  ?=	8
+IRAM_ADDR ?=	0x00000000
+DRAM_ADDR ?=	0x00004000
 ```
 * Once you generate your design with IP SoC Gen, copy across to this project the files inside **rtl** and the **sw** folders to the local `rtl/` and `sw/common/`, this will require an update as well in the 2x software programs (bootloader & hello_world) to indicate the correct header file. By default these 2x programs will require a header file with reset controller (for printf, see current design) and 2x memories IRAM/DRAM;
