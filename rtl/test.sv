@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 08/04/2023 13:22:11
+ * Date              : 10/04/2023 12:59:33
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -11,6 +11,7 @@
 
 module test
   import amba_axi_pkg::*;
+  import eth_pkg::*;
 (
   input		logic	arty_a7_100MHz,
   input		logic	arty_a7_sw_0,

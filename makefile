@@ -12,8 +12,7 @@ _SRC_VERILOG 	+=	ips/nox/rtl/inc/core_bus_pkg.svh
 _SRC_VERILOG 	+=	ips/nox/rtl/inc/nox_utils_pkg.sv
 _SRC_VERILOG	+=	ips/nox/rtl/inc/nox_pkg.svh
 _SRC_VERILOG 	+=	ips/nox/rtl/inc/riscv_pkg.svh
-_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/eth_pkg.svh
-_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/utils_pkg.sv
+_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/eth_pkg.sv
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_defines.svh
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_structs.svh
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_axi_fnc.svh
@@ -160,4 +159,3 @@ all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 
 run: $(VERILATOR_EXE) sw/hello_world/output/hello_world.elf
 	$(RUN_CMD) ./$(VERILATOR_EXE) -s 200000 -e sw/hello_world/output/hello_world.elf
-
