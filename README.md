@@ -1,6 +1,12 @@
-# MPSoC Hardware
+# IPSoC gen - MPSoC template project
 
-This repository contains all the RTL related to the `MPSoC` design with all submodules and a testbench in cpp that you can run in your native Linux machine. Also it is available too an option to build an FPGA image to test with real hw.
+In this branch we have the **MPSoC** template design built with IP SoC gen. It contains all the RTL related to the `MPSoC` design with all submodules and a testbench in cpp that you can run in your native Linux machine. Also it is available too an option to build an FPGA image to test with real hw.
+
+## MPSoC Configuration
+The MPSoC configuration used in this template follows the below memory map. This configuration is available [here](https://github.com/aignacio/ipsocgen/blob/main/ipsocgen/examples/template_mpsoc.yaml) and its output can be generated using the following command:
+```bash
+ipsocgen -c template_mpsoc.yaml
+```
 
 ## MPSoC Emulator (in cpp)
 
