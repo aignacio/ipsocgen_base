@@ -13,15 +13,16 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include "verilated_fst_c.h"
-#include "Vtest.h"
-#include "Vtest__Syms.h"
+#include "Vmpsoc.h"
+#include "Vmpsoc__Syms.h"
 
 #define STRINGIZE(x) #x
 #define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
 
 using namespace std;
 unsigned long tick_counter;
-fstream soc_log;
+fstream master_tile_log;
+fstream slave_tile_log;
 
 template<class module> class testbench {
   VerilatedFstC *trace = new VerilatedFstC;
@@ -42,9 +43,15 @@ template<class module> class testbench {
     }
 
     virtual void reset(int rst_cyc) {
-      core->arty_a7_uart_rx = 0;
-      core->arty_a7_sw_0 = 0;
-      core->arty_a7_sw_1 = 0;
+      //core->uart_rx_i       = 0;
+      //core->bootloader_i    = 0;
+      core->arty_a7_rst_n    = 1;
+      //core->uart_switch_i   = 0;
+      //core->phy_rx_clk      = 0;
+      //core->phy_rxd         = 0;
+      //core->phy_rx_ctl      = 0;
+      //core->phy_int_n       = 0;
+      //core->phy_pme_n       = 0;
 
       for (int i=0;i<rst_cyc;i++) {
         core->arty_a7_rst_n = 0;
@@ -71,11 +78,16 @@ template<class module> class testbench {
     }
 
     virtual void tick(void) {
-      char buffer;
+      char master, slave;
       //core->uart_rx_i = rand()%10;
-      if (core->test->u_rst_ctrl->printfbufferReq()) {
-        buffer = core->test->u_rst_ctrl->getbufferReq();
-        soc_log << buffer;
+      if (core->mpsoc->u_tile_0->u_rst_ctrl->printfbufferReq()) {
+        master = core->mpsoc->u_tile_0->u_rst_ctrl->getbufferReq();
+        master_tile_log << master;
+      }
+
+      if (core->mpsoc->u_tile_1->u_rst_ctrl->printfbufferReq()) {
+        slave = core->mpsoc->u_tile_1->u_rst_ctrl->getbufferReq();
+        slave_tile_log << slave;
       }
 
       core->arty_a7_100MHz = 0;
@@ -96,7 +108,7 @@ template<class module> class testbench {
     }
 };
 
-bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bool en_print){
+bool loadELF(testbench<Vmpsoc> *sim, string program_path, s_tile_t tile, const bool en_print){
   ELFIO::elfio program;
 
   program.load(program_path);
@@ -143,8 +155,19 @@ bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bo
                              ((uint8_t)p_seg->get_data()[p+1]<<8)+(uint8_t)p_seg->get_data()[p];
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
-          cout << "IRAM - Writing address [" << (p+init_addr) << "] Data [" << word_line << "]" << std::endl;
-          sim->core->test->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+          if (tile.type == MASTER){
+            sim->core->mpsoc->u_tile_0->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+          }
+          else{
+            sim->core->mpsoc->u_tile_1->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_2->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_3->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_4->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_5->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_6->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_7->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_8->writeWordRAM___05Firam((p+init_addr)/4,word_line);
+          }
         }
       }
     }
@@ -164,21 +187,43 @@ bool loadELF(testbench<Vtest> *sim, string program_path, s_tile_t tile, const bo
                              ((uint8_t)p_seg->get_data()[p+1]<<8)+(uint8_t)p_seg->get_data()[p];
         // If the whole word is zeroed, we don't write as it might overlap other regions
         if (!(word_line == 0x00)) {
-          cout << "DRAM - Writing address [" << (p+init_addr) << "] Data [" << word_line << "]" << std::endl;
-          sim->core->test->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+          if (tile.type == MASTER){
+            sim->core->mpsoc->u_tile_0->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+          }
+          else {
+            sim->core->mpsoc->u_tile_1->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_2->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_3->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_4->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_5->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_6->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_7->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+            sim->core->mpsoc->u_tile_8->writeWordRAM___05Fdram((p+init_addr)/4,word_line);
+          }
         }
       }
     }
   }
-  cout << "Writing entry point [" << program.get_entry() << "]" << std::endl;
-  sim->core->test->writeRstAddr___05Frst_ctrl(program.get_entry());
+  if (tile.type == MASTER){
+    sim->core->mpsoc->u_tile_0->writeRstAddr___05Frst_ctrl(program.get_entry());
+  }
+  else{
+    sim->core->mpsoc->u_tile_1->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_2->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_3->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_4->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_5->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_6->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_7->writeRstAddr___05Frst_ctrl(program.get_entry());
+    sim->core->mpsoc->u_tile_8->writeRstAddr___05Frst_ctrl(program.get_entry());
+  }
   cout << std::endl;
   return 0;
 }
 
 int main(int argc, char** argv, char** env){
   Verilated::commandArgs(argc, argv);
-  auto *dut = new testbench<Vtest>;
+  auto *dut = new testbench<Vmpsoc>;
   s_tile_t tile;
 
   s_sim_setup_t setup = {
@@ -186,14 +231,19 @@ int main(int argc, char** argv, char** env){
     .waves_dump = WAVEFORM_USE,
     .waves_timestamp = 0,
     .waves_path = STRINGIZE_VALUE_OF(WAVEFORM_FST),
-    .elf_path = ""
+    .elf_master_path = "",
+    .elf_slave_path = ""
   };
 
-  cout << "[SoC]" << std::endl;
+  cout << "[MPSoC]" << std::endl;
 
-  cout << "SoC cfg:" << std::endl;
-  cout << "[IRAM] " << STRINGIZE_VALUE_OF(IRAM_KB_SIZE) << "KB" << std::endl;
-  cout << "[DRAM] " << STRINGIZE_VALUE_OF(DRAM_KB_SIZE) << "KB" << std::endl;
+  cout << "Master Tile cfg:" << std::endl;
+  cout << "[IRAM] " << STRINGIZE_VALUE_OF(MASTER_IRAM_KB_SIZE) << "KB" << std::endl;
+  cout << "[DRAM] " << STRINGIZE_VALUE_OF(MASTER_DRAM_KB_SIZE) << "KB" << std::endl;
+
+  cout << "Slave Tile cfg:" << std::endl;
+  cout << "[IRAM] " << STRINGIZE_VALUE_OF(SLAVE_IRAM_KB_SIZE) << "KB" << std::endl;
+  cout << "[DRAM] " << STRINGIZE_VALUE_OF(SLAVE_DRAM_KB_SIZE) << "KB" << std::endl;
 
   parse_input(argc, argv, &setup);
 
@@ -204,22 +254,35 @@ int main(int argc, char** argv, char** env){
 
   dut->init_dump_setpoint(setup.waves_timestamp);
 
-  if (!setup.elf_path.empty()){
-    tile.iram_addr    = IRAM_ADDR;
-    tile.iram_kb_size = IRAM_KB_SIZE;
-    tile.dram_addr    = DRAM_ADDR;
-    tile.dram_kb_size = DRAM_KB_SIZE;
+  if (!setup.elf_master_path.empty() && !setup.elf_slave_path.empty()){
+    tile.iram_addr    = MASTER_IRAM_ADDR;
+    tile.iram_kb_size = MASTER_IRAM_KB_SIZE;
+    tile.dram_addr    = MASTER_DRAM_ADDR;
+    tile.dram_kb_size = MASTER_DRAM_KB_SIZE;
+    tile.type         = MASTER;
 
-    if (loadELF(dut, setup.elf_path, tile, true)) {
-      cout << "\nError while processing ELF file!" << std::endl;
+    if (loadELF(dut, setup.elf_master_path, tile, true)) {
+      cout << "\nError while processing Master ELF file!" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    tile.iram_addr    = SLAVE_IRAM_ADDR;
+    tile.iram_kb_size = SLAVE_IRAM_KB_SIZE;
+    tile.dram_addr    = SLAVE_DRAM_ADDR;
+    tile.dram_kb_size = SLAVE_DRAM_KB_SIZE;
+    tile.type         = SLAVE;
+
+    if (loadELF(dut, setup.elf_slave_path, tile, true)) {
+      cout << "\nError while processing Slave ELF file!" << std::endl;
       exit(EXIT_FAILURE);
     }
   }
 
-  soc_log.open("soc_log.txt", ios::out);
+  master_tile_log.open("master_tile_log.txt", ios::out);
+  slave_tile_log.open("slave_tile_log.txt", ios::out);
 
-  if (!soc_log ) {
-    cout << "Error while creating log files!" << std::endl;
+  if (!master_tile_log || !slave_tile_log) {
+    cout << "Log files not created!" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -228,8 +291,8 @@ int main(int argc, char** argv, char** env){
     dut->tick();
   }
 
-  soc_log.close();
-  soc_log.close();
+  master_tile_log.close();
+  slave_tile_log.close();
 
   cout << "\n[SIM Summary]" << std::endl;
   cout << "Clk cycles elapsed\t= " << (sim_cycles_timeout-(setup.sim_cycles+1)) << std::endl;

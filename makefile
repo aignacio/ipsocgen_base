@@ -1,19 +1,19 @@
 PARALLEL_B		:=	4
 GTKWAVE_PRE		:=	/Applications/gtkwave.app/Contents/Resources/bin/
 # Add your project name here - Be careful to not add spaces after the name
-PROJECT_NAME  :=	test
+PROJECT_NAME  :=	mpsoc
 WAVEFORM_USE	:=	1
 
 # Common IP Design files
 # 1) Packages
-_SRC_VERILOG	 =	ips/bus_arch_sv_pkg/amba_ahb_pkg.sv
+_SRC_VERILOG	 =	rtl/$(PROJECT_NAME)_defines.sv
+_SRC_VERILOG	+=	ips/bus_arch_sv_pkg/amba_ahb_pkg.sv
 _SRC_VERILOG	+=	ips/bus_arch_sv_pkg/amba_axi_pkg.sv
 _SRC_VERILOG 	+=	ips/nox/rtl/inc/core_bus_pkg.svh
 _SRC_VERILOG 	+=	ips/nox/rtl/inc/nox_utils_pkg.sv
 _SRC_VERILOG	+=	ips/nox/rtl/inc/nox_pkg.svh
 _SRC_VERILOG 	+=	ips/nox/rtl/inc/riscv_pkg.svh
-_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/eth_pkg.svh
-_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/utils_pkg.sv
+_SRC_VERILOG 	+=	ips/ethernet_axi/rtl/inc/eth_pkg.sv
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_defines.svh
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_structs.svh
 _SRC_VERILOG 	+=	ips/ravenoc/src/include/ravenoc_axi_fnc.svh
@@ -66,10 +66,15 @@ _INCS_VLOG		+=	rtl
 INCS_VLOG			:=	$(addprefix -I,$(_INCS_VLOG))
 
 # Design parameters
-IRAM_KB_SIZE	?=	16
-DRAM_KB_SIZE	?=	8
-IRAM_ADDR			?=	0x00000000
-DRAM_ADDR			?=	0x00004000
+MASTER_IRAM_KB_SIZE	?=	30
+MASTER_DRAM_KB_SIZE	?=	16
+MASTER_IRAM_ADDR		?=	0x00040000
+MASTER_DRAM_ADDR		?=	0x00020000
+
+SLAVE_IRAM_KB_SIZE	?=	20
+SLAVE_DRAM_KB_SIZE	?=	16
+SLAVE_IRAM_ADDR			?=	0x00040000
+SLAVE_DRAM_ADDR			?=	0x00020000
 
 # Verilator info
 VERILATOR_TB	:=	tb
@@ -98,12 +103,16 @@ RUN_CMD				:=	docker run --rm --name ship_soc	\
 									-v $(abspath .):/soc -w					\
 									/soc aignacio/mpsoc
 
-CPPFLAGS_VERI	:=	"$(INCS_CPP) -O0 -g3 -Wall					\
-									-DIRAM_KB_SIZE=\"$(IRAM_KB_SIZE)\"	\
-									-DDRAM_KB_SIZE=\"$(DRAM_KB_SIZE)\"	\
-									-DIRAM_ADDR=\"$(IRAM_ADDR)\"				\
-									-DDRAM_ADDR=\"$(DRAM_ADDR)\"				\
-									-DWAVEFORM_USE=\"$(WAVEFORM_USE)\"	\
+CPPFLAGS_VERI	:=	"$(INCS_CPP) -O0 -g3 -Wall												\
+									-DMASTER_IRAM_KB_SIZE=\"$(MASTER_IRAM_KB_SIZE)\"	\
+									-DMASTER_DRAM_KB_SIZE=\"$(MASTER_DRAM_KB_SIZE)\"	\
+									-DSLAVE_IRAM_KB_SIZE=\"$(SLAVE_IRAM_KB_SIZE)\"		\
+									-DSLAVE_DRAM_KB_SIZE=\"$(SLAVE_DRAM_KB_SIZE)\"		\
+									-DMASTER_IRAM_ADDR=\"$(MASTER_IRAM_ADDR)\"				\
+									-DMASTER_DRAM_ADDR=\"$(MASTER_DRAM_ADDR)\"				\
+									-DSLAVE_IRAM_ADDR=\"$(SLAVE_IRAM_ADDR)\"					\
+									-DSLAVE_DRAM_ADDR=\"$(SLAVE_DRAM_ADDR)\"					\
+									-DWAVEFORM_USE=\"$(WAVEFORM_USE)\"								\
 									-DWAVEFORM_FST=\"$(WAVEFORM_FST)\""
 									#-Wunknown-warning-option"
 
@@ -159,5 +168,4 @@ all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 	@echo "\n"
 
 run: $(VERILATOR_EXE) sw/hello_world/output/hello_world.elf
-	$(RUN_CMD) ./$(VERILATOR_EXE) -s 200000 -e sw/hello_world/output/hello_world.elf
-
+	$(RUN_CMD) ./$(VERILATOR_EXE) -s 1000000 -em master_tile.elf -es slave_tile.elf

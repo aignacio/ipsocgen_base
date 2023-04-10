@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "printf.h"
-#include "test.h"
+#include "tile_0.h"
 #include "riscv_csr_encoding.h"
 
 #define FREQ_SYSTEM 50000000
