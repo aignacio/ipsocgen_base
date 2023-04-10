@@ -2,7 +2,7 @@
  * File              : tile_0.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 10/04/2023 15:56:26
+ * Date              : 10/04/2023 20:18:49
  * Description       : MPSoC tile no 0
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -62,7 +62,7 @@ module tile_0
 // 2         0x10000    0x13fff   16          Data RAM
 // 3         0x18000    0x1ffff   32          Boot ROM image
 // 4         0x20000    0x21fff   8           UART Serial IP
-// 5         0x22000    0x23fff   8           Machine Timer (mtimer)
+// 5         0x22000    0x23fff   8           Machine Timer mtimer
 // 6         0x24000    0x25fff   8           DMA Engine Control CSRs
 // 7         0x26000    0x27fff   8           IRQ Controller
 // 8         0x28000    0x29fff   8           Reset Controller
@@ -203,7 +203,7 @@ module tile_0
   );
 
   //
-  // Machine Timer (mtimer)
+  // Machine Timer mtimer
   //
   axi_timer #(
     .BASE_ADDR        ('h22000)

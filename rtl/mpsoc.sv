@@ -2,7 +2,7 @@
  * File              : mpsoc.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 10/04/2023 15:56:26
+ * Date              : 10/04/2023 20:18:49
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --

@@ -167,5 +167,5 @@ all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 	@echo "$(VERILATOR_EXE) -h"
 	@echo "\n"
 
-run: $(VERILATOR_EXE) sw/hello_world/output/hello_world.elf
-	$(RUN_CMD) ./$(VERILATOR_EXE) -s 1000000 -em master_tile.elf -es slave_tile.elf
+run: $(VERILATOR_EXE) 
+	$(RUN_CMD) ./$(VERILATOR_EXE) -s 1000000 -em sw/master/build/master_tile.elf -es sw/slave/build/slave_tile.elf
