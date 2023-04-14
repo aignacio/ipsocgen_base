@@ -45,7 +45,7 @@ template<class module> class testbench {
     virtual void reset(int rst_cyc) {
       //core->uart_rx_i       = 0;
       //core->bootloader_i    = 0;
-      core->arty_a7_rst_n    = 1;
+      core->arty_a7_rst       = 0;
       //core->uart_switch_i   = 0;
       //core->phy_rx_clk      = 0;
       //core->phy_rxd         = 0;
@@ -54,10 +54,10 @@ template<class module> class testbench {
       //core->phy_pme_n       = 0;
 
       for (int i=0;i<rst_cyc;i++) {
-        core->arty_a7_rst_n = 0;
+        core->arty_a7_rst = 0;
         this->tick();
       }
-      core->arty_a7_rst_n = 1;
+      core->arty_a7_rst = 1;
       this->tick();
     }
 

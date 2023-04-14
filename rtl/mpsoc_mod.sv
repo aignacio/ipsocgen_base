@@ -13,9 +13,25 @@ module mpsoc
   import ravenoc_pkg::*;
   import eth_pkg::*;
 (
-  input		logic	arty_a7_100MHz,
-  input		logic	arty_a7_pll_rst,
-  input		logic	arty_a7_rst
+  input		          	arty_a7_100MHz,
+  input		          	arty_a7_pll_rst,
+  input		          	arty_a7_rst
+  // Manually added IOs
+  input               uart_switch_i, // 0 - Slave tiles, 1 - Master tile
+  input               bootloader_i,  // Active high
+  output  logic       uart_tx_o,
+  input               uart_rx_i,
+  // Ethernet: 1000BASE-T RGMII
+  input               phy_rx_clk,
+  input   [3:0]       phy_rxd,
+  input               phy_rx_ctl,
+  output              phy_tx_clk,
+  output  [3:0]       phy_txd,
+  output              phy_tx_ctl,
+  output              phy_reset_n,
+  input               phy_int_n,
+  input               phy_pme_n
+
 );
 
   logic clk_50MHz;
