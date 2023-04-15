@@ -2,7 +2,7 @@
  * File              : mpsoc.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 14/04/2023 23:25:26
+ * Date              : 15/04/2023 12:16:24
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -100,99 +100,99 @@ module mpsoc
   // tile_0
   tile_0 u_tile_0 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[0]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[0]),
-    .irq_ravenoc     (irqs_ravenoc[0])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[0]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[0]),
+    .irq_ravenoc      (irqs_ravenoc[0])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_1
   tile_1 u_tile_1 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[1]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[1]),
-    .irq_ravenoc     (irqs_ravenoc[1])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[1]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[1]),
+    .irq_ravenoc      (irqs_ravenoc[1])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_2
   tile_2 u_tile_2 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[2]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[2]),
-    .irq_ravenoc     (irqs_ravenoc[2])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[2]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[2]),
+    .irq_ravenoc      (irqs_ravenoc[2])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_3
   tile_3 u_tile_3 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[3]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[3]),
-    .irq_ravenoc     (irqs_ravenoc[3])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[3]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[3]),
+    .irq_ravenoc      (irqs_ravenoc[3])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_4
   tile_4 u_tile_4 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[4]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[4]),
-    .irq_ravenoc     (irqs_ravenoc[4])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[4]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[4]),
+    .irq_ravenoc      (irqs_ravenoc[4])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_5
   tile_5 u_tile_5 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[5]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[5]),
-    .irq_ravenoc     (irqs_ravenoc[5])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[5]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[5]),
+    .irq_ravenoc      (irqs_ravenoc[5])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_6
   tile_6 u_tile_6 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[6]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[6]),
-    .irq_ravenoc     (irqs_ravenoc[6])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[6]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[6]),
+    .irq_ravenoc      (irqs_ravenoc[6])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_7
   tile_7 u_tile_7 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[7]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[7]),
-    .irq_ravenoc     (irqs_ravenoc[7])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[7]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[7]),
+    .irq_ravenoc      (irqs_ravenoc[7])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_8
   tile_8 u_tile_8 (
     // Mandatory IOs
-    .clk_in          (clk_50MHz),
-    .rst_in          (rst_int_mpsoc),
-    .noc_axi_miso_i  (slaves_axi_miso[8]),
-    .noc_axi_mosi_o  (slaves_axi_mosi[8]),
-    .irq_ravenoc     (irqs_ravenoc[8])
+    .clk_in           (clk_50MHz),
+    .rst_in           (rst_int_mpsoc),
+    .noc_axi_miso_i   (slaves_axi_miso[8]),
+    .noc_axi_mosi_o   (slaves_axi_mosi[8]),
+    .irq_ravenoc      (irqs_ravenoc[8])
   );
   /* verilator lint_on PINMISSING */
 

@@ -2,7 +2,7 @@
  * File              : tile_5.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 14/04/2023 23:25:26
+ * Date              : 15/04/2023 12:16:24
  * Description       : MPSoC tile no 5
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -17,10 +17,10 @@ module tile_5
   input		logic	rst_in,
   input		s_irq_ni_t	irq_ravenoc,
   input		s_axi_miso_t	noc_axi_miso_i,
-  input		logic	arty_a7_uart_rx,
+  input		logic	uart_rx_i,
   input		logic	bootloader_i,
   output	s_axi_mosi_t	noc_axi_mosi_o,
-  output	logic	arty_a7_uart_tx
+  output	logic	uart_tx_o
 );
 
   logic clk_int;
@@ -173,8 +173,8 @@ module tile_5
     .rst              (rst_int),
     .axi_mosi         (slaves_axi_mosi[4]),
     .axi_miso         (slaves_axi_miso[4]),
-    .uart_tx_o        (arty_a7_uart_tx),
-    .uart_rx_i        (arty_a7_uart_rx),
+    .uart_tx_o        (uart_tx_o),
+    .uart_rx_i        (uart_rx_i),
     .uart_rx_irq_o    (irq_uart_rx)
   );
 

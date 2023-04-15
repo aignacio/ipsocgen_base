@@ -169,3 +169,9 @@ all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 
 run: $(VERILATOR_EXE) 
 	$(RUN_CMD) ./$(VERILATOR_EXE) -s 1000000 -em sw/master/build/master_tile.elf -es sw/slave/build/slave_tile.elf
+
+fpga_nexys:
+	fusesoc run --target=nv_synth --run core:mpsoc:v1.0.0
+
+add_lib:
+	fusesoc library add core:mpsoc:v1.0.0 .

@@ -2,7 +2,7 @@
  * File              : mpsoc_defines.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 14/04/2023 23:25:26
+ * Date              : 15/04/2023 12:16:24
  * Description       : Verilog defines configuration file
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
