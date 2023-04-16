@@ -30,7 +30,7 @@ filesets:
 
   mpsoc_rtl:
     files:
-      - rtl/mpsoc_mod.sv
+      - rtl/mpsoc_fpga.sv
       - rtl/tile_0.sv
       - rtl/tile_1.sv
       - rtl/tile_2.sv

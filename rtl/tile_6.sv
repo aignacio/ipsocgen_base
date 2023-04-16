@@ -2,7 +2,7 @@
  * File              : tile_6.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 15/04/2023 12:16:24
+ * Date              : 16/04/2023 16:55:14
  * Description       : MPSoC tile no 6
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -221,11 +221,12 @@ module tile_6
   );
 
   logic [31:0] irq_vector_mapping;
-
-  assign irq_vector_mapping = '0; // Default assignment
   assign irq_vector_mapping[0] = irq_ravenoc.irq_trig;
   assign irq_vector_mapping[1] = dma_error;
   assign irq_vector_mapping[2] = dma_done;
+  
+  assign irq_vector_mapping[31:3] = '0; // TIE-L not used IRQs
+  
 
   //
   // IRQ Controller

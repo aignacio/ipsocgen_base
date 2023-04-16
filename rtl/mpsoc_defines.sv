@@ -2,7 +2,7 @@
  * File              : mpsoc_defines.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 15/04/2023 12:16:24
+ * Date              : 16/04/2023 16:55:14
  * Description       : Verilog defines configuration file
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -19,6 +19,8 @@
 `define NOC_CFG_SZ_ROWS       	3
 `define NOC_CFG_SZ_COLS       	3
 `define RAVENOC_BASE_ADDR     	'h0000_0000
+`define N_VIRT_CHN            	1
+`define RD_AXI_BFF(x)         	x<=2?2:4
 `define NUM_TILES             	9
 
 // AXI Configuration
