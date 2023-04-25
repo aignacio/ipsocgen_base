@@ -29,8 +29,8 @@ module mpsoc
   output  logic       phy_tx_ctl,
   output  logic       phy_reset_n,
   input               phy_int_n,
-  input               phy_pme_n
-
+  input               phy_pme_n,
+  output  logic       pll_locked
 );
 
   logic clk_50MHz;
@@ -48,15 +48,10 @@ module mpsoc
   logic clk_buff_out;
   logic clk_feedback_in;
   logic clk_feedback_out;
-  logic pll_locked;
   logic rst_pll;
   
   assign rst_pll = arty_a7_pll_rst;
   
-
-`ifdef SIMULATION
-  assign clk_50MHz = arty_a7_100MHz;
-`else
   //
   // PLLE2_BASE: Base Phase Locked Loop (PLL)
   //             7 Series
@@ -106,7 +101,6 @@ module mpsoc
     .I (clk_buff_out),
     .O (clk_50MHz)
   );
-`endif
   
   logic [`NUM_TILES-1:0] uart_tx;
   logic [`NUM_TILES-1:0] uart_rx;
@@ -163,6 +157,16 @@ module mpsoc
     .phy_tx_ctl       (phy_tx_ctrl),
     .phy_reset_n      (phy_reset_n)
   );
+
+  //ila_0 ila (
+    //.clk(clk_50MHz), // input wire clk
+    //.probe0(u_tile_0.rst_addr), // input wire [31:0]  probe0  
+    //.probe1(u_tile_0.masters_axi_mosi[0].araddr), // input wire [31:0]  probe1 
+    //.probe2(u_tile_0.masters_axi_mosi[0].arvalid), // input wire [0:0]  probe2 
+    //.probe3(u_tile_0.rst_int), // input wire [31:0]  probe3 
+    //.probe4(u_tile_0.masters_axi_miso[0].rvalid), // input wire [0:0]  probe4 
+    //.probe5(u_tile_0.masters_axi_miso[0].rdata) // input wire [31:0]  probe5
+  //);
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
   // tile_1

@@ -45,6 +45,8 @@ set_property IDELAY_VALUE 0 [get_cells {u_tile_0/u_eth/phy_rx_ctl_idelay u_tile_
 
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks sys_clk_pin]
 set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins u_clk_pll/CLKOUT0]] -group [get_clocks -of_objects [get_pins {u_tile_0/u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]]
+set_property -dict { PACKAGE_PIN T14   IOSTANDARD LVCMOS25 } [get_ports { pll_locked }]; #IO_L15P_T2_DQS_13 Sch=led[0]
+#
 #set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins u_clk_mgmt/plle2_adv_100_to_50MHz_inst/CLKOUT0]] -group [get_clocks phy_rx_clk]
 #set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]] -group [get_clocks phy_rx_clk]
 #set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]] -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT1}]]

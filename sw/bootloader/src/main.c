@@ -20,7 +20,7 @@ volatile uint32_t* const uart_stats = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR+0x4)
 volatile uint32_t* const uart_print = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR+0xC);
 volatile uint32_t* const uart_rx    = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR+0x8);
 volatile uint32_t* const uart_cfg   = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR);
-volatile uint32_t* const rst_cfg    = (uint32_t*) RESET_CONTROLLER_BASE_ADDR;
+volatile uint32_t* const rst_cfg    = (uint32_t*) (RESET_CONTROLLER_BASE_ADDR);
 
 uint8_t   gIdx_rx = 0;
 uint8_t   gRx_chars[40];
