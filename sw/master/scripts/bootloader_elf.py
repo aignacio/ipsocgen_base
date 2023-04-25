@@ -4,7 +4,7 @@
 # License           : MIT license <Check LICENSE>
 # Author            : Anderson Ignacio da Silva (aignacio) <anderson@aignacio.com>
 # Date              : 16.03.2022
-# Last Modified Date: 05.01.2023
+# Last Modified Date: 25.04.2023
 # Description       : Bootloader script to download binaries using the UART port
 #                     for the Pixel SoC bootloader ROM
 import serial
@@ -20,8 +20,8 @@ from elftools.elf.sections import SymbolTableSection
 default_serial = '/dev/tty.usbserial-210319A438821'
 default_speed  = 115200
 gpio_addr      = 'D0000000'
-rst_ctrl       = '00062000'
-rst_act        = '00062020'
+rst_ctrl       = '00028000'
+rst_act        = '00028020'
 
 def _start_seq(serial_p):
     ser = serial.Serial(serial_p['port'], serial_p['speed'], timeout=1)
