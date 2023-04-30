@@ -2,7 +2,7 @@
  * File              : tile_0.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 16/04/2023 16:55:14
+ * Date              : 27/04/2023 17:52:25
  * Description       : MPSoC tile no 0
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -57,18 +57,18 @@ module tile_0
 // 2          DMA Engine
 
 // Slave ID  Base Addr  End Addr  Size (KiB)  Description
-// 0         0x0        0x7fff    32          RaveNoC Slave IF
-// 1         0x8000     0xffff    32          Instruction RAM
-// 2         0x10000    0x13fff   16          Data RAM
-// 3         0x18000    0x1ffff   32          Boot ROM image
-// 4         0x20000    0x21fff   8           UART Serial IP
-// 5         0x22000    0x23fff   8           Machine Timer mtimer
-// 6         0x24000    0x25fff   8           DMA Engine Control CSRs
-// 7         0x26000    0x27fff   8           IRQ Controller
-// 8         0x28000    0x29fff   8           Reset Controller
-// 9         0x2a000    0x2afff   4           Ethernet Slave RGMII
-// 10        0x2b000    0x2bfff   4           Ethernet InFIFO IF
-// 11        0x2c000    0x2cfff   4           Ethernet OutFIFO IF
+// 0         0x0        0x7fff    32          Boot ROM image
+// 1         0x20000    0x3ffff   128         Data RAM
+// 2         0x40000    0x5ffff   128         Instruction RAM
+// 3         0x60000    0x61fff   8           UART Serial IP
+// 4         0x62000    0x63fff   8           Reset Controller
+// 5         0x64000    0x67fff   16          RaveNoC Slave IF
+// 6         0x68000    0x69fff   8           Machine Timer mtimer
+// 7         0x70000    0x71fff   8           DMA Engine Control CSRs
+// 8         0x72000    0x73fff   8           IRQ Controller
+// 9         0x74000    0x75fff   8           Ethernet Slave RGMII
+// 10        0x76000    0x77fff   8           Ethernet InFIFO IF
+// 11        0x78000    0x79fff   8           Ethernet OutFIFO IF
 
   s_axi_mosi_t  [2:0] masters_axi_mosi;
   s_axi_miso_t  [2:0] masters_axi_miso;
@@ -84,29 +84,29 @@ module tile_0
     .N_MASTERS        (3),
     .N_SLAVES         (12),
     .AXI_TID_WIDTH    (8),
-    .M_BASE_ADDR      ({32'h2c000,
-                        32'h2b000,
-                        32'h2a000,
-                        32'h28000,
-                        32'h26000,
-                        32'h24000,
-                        32'h22000,
+    .M_BASE_ADDR      ({32'h78000,
+                        32'h76000,
+                        32'h74000,
+                        32'h72000,
+                        32'h70000,
+                        32'h68000,
+                        32'h64000,
+                        32'h62000,
+                        32'h60000,
+                        32'h40000,
                         32'h20000,
-                        32'h18000,
-                        32'h10000,
-                        32'h8000,
                         32'h0}),
-    .M_ADDR_WIDTH     ({32'd12,
-                        32'd12,
-                        32'd12,
+    .M_ADDR_WIDTH     ({32'd13,
                         32'd13,
                         32'd13,
                         32'd13,
                         32'd13,
                         32'd13,
-                        32'd15,
                         32'd14,
-                        32'd15,
+                        32'd13,
+                        32'd13,
+                        32'd17,
+                        32'd17,
                         32'd15})
   ) u_axi4_crossbar (
     .clk              (clk_int),
@@ -132,8 +132,8 @@ module tile_0
   //
   // RaveNoC Slave IF
   //
-  assign noc_axi_mosi_o = slaves_axi_mosi[0];
-  assign slaves_axi_miso[0] = noc_axi_miso_i;
+  assign noc_axi_mosi_o = slaves_axi_mosi[5];
+  assign slaves_axi_miso[5] = noc_axi_miso_i;
 
   //
   // Instruction RAM
@@ -144,8 +144,8 @@ module tile_0
   ) u_iram (
     .clk              (clk_int),
     .rst              (rst_int),
-    .axi_mosi         (slaves_axi_mosi[1]),
-    .axi_miso         (slaves_axi_miso[1])
+    .axi_mosi         (slaves_axi_mosi[2]),
+    .axi_miso         (slaves_axi_miso[2])
   );
 
   // synthesis translate_off
@@ -166,8 +166,8 @@ module tile_0
   ) u_dram (
     .clk              (clk_int),
     .rst              (rst_int),
-    .axi_mosi         (slaves_axi_mosi[2]),
-    .axi_miso         (slaves_axi_miso[2])
+    .axi_mosi         (slaves_axi_mosi[1]),
+    .axi_miso         (slaves_axi_miso[1])
   );
 
   // synthesis translate_off
@@ -185,8 +185,8 @@ module tile_0
   axi_rom_wrapper u_boot_rom (
     .clk              (clk_int),
     .rst              (rst_int),
-    .axi_mosi         (slaves_axi_mosi[3]),
-    .axi_miso         (slaves_axi_miso[3])
+    .axi_mosi         (slaves_axi_mosi[0]),
+    .axi_miso         (slaves_axi_miso[0])
   );
 
   //
@@ -195,8 +195,8 @@ module tile_0
   axi_uart_wrapper u_uart (
     .clk              (clk_int),
     .rst              (rst_int),
-    .axi_mosi         (slaves_axi_mosi[4]),
-    .axi_miso         (slaves_axi_miso[4]),
+    .axi_mosi         (slaves_axi_mosi[3]),
+    .axi_miso         (slaves_axi_miso[3]),
     .uart_tx_o        (uart_tx_o),
     .uart_rx_i        (uart_rx_i),
     .uart_rx_irq_o    (irq_uart_rx)
@@ -206,12 +206,12 @@ module tile_0
   // Machine Timer mtimer
   //
   axi_timer #(
-    .BASE_ADDR        ('h22000)
+    .BASE_ADDR        ('h68000)
   ) u_timer (
     .clk              (clk_int),
     .rst              (rst_int),
-    .axi_mosi         (slaves_axi_mosi[5]),
-    .axi_miso         (slaves_axi_miso[5]),
+    .axi_mosi         (slaves_axi_mosi[6]),
+    .axi_miso         (slaves_axi_miso[6]),
     .timer_irq_o      (irq_mtimer)
   );
 
@@ -219,8 +219,8 @@ module tile_0
   s_axil_miso_t axil_miso_dma_0;
 
   axil_to_axi u_axil_to_axi_dma_0 (
-    .axi_mosi_i       (slaves_axi_mosi[6]),
-    .axi_miso_o       (slaves_axi_miso[6]),
+    .axi_mosi_i       (slaves_axi_mosi[7]),
+    .axi_miso_o       (slaves_axi_miso[7]),
     .axil_mosi_o      (axil_mosi_dma_0),
     .axil_miso_i      (axil_miso_dma_0)
   );
@@ -261,30 +261,30 @@ module tile_0
   // IRQ Controller
   //
   axi_irq_ctrl #(
-    .BASE_ADDR        ('h26000),
+    .BASE_ADDR        ('h72000),
     .TYPE_OF_IRQ      ('hffffffff)
   ) u_irq_ctrl (
     .clk              (clk_int),
     .rst              (rst_int),
     .irq_i            (irq_vector_mapping),
     .irq_summary_o    (irq_ctrl_ext),
-    .axi_mosi         (slaves_axi_mosi[7]),
-    .axi_miso         (slaves_axi_miso[7])
+    .axi_mosi         (slaves_axi_mosi[8]),
+    .axi_miso         (slaves_axi_miso[8])
   );
 
   //
   // Reset Controller
   //
   axi_rst_ctrl #(
-    .RESET_VECTOR_ADDR ('h18000),
-    .BASE_ADDR         ('h28000),
+    .RESET_VECTOR_ADDR ('h0),
+    .BASE_ADDR         ('h62000),
     .RESET_PULSE_WIDTH (4)
   ) u_rst_ctrl  (
     .clk               (clk_int),
     .rst               (rst_in),
     .bootloader_i      (bootloader_i),
-    .axi_mosi          (slaves_axi_mosi[8]),
-    .axi_miso          (slaves_axi_miso[8]),
+    .axi_mosi          (slaves_axi_mosi[4]),
+    .axi_miso          (slaves_axi_miso[4]),
     .rst_addr_o        (rst_addr),
     .rst_o             (rst_int)
   );
