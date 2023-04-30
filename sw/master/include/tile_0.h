@@ -2,7 +2,7 @@
 #define TILE_0_H
 
 // AUTO-GENERATED header file through IPSoCGen
-// 26/04/2023 20:36:52
+// 30/04/2023 14:21:55
 
 // Master ID  Description
 // 0          NoX CPU - Instr. IF
@@ -36,5 +36,19 @@
 #define  ETHERNET_SLAVE_RGMII_BASE_ADDR     0x74000
 #define  ETHERNET_INFIFO_IF_BASE_ADDR       0x76000
 #define  ETHERNET_OUTFIFO_IF_BASE_ADDR      0x78000
+
+//       SLAVE                           MEM SIZE BYTES  SIZE KiB
+#define  BOOT_ROM_IMAGE_SIZE                      20480  // 20KiB
+#define  DATA_RAM_SIZE                            16384  // 16KiB
+#define  INSTRUCTION_RAM_SIZE                     30720  // 30KiB
+#define  UART_SERIAL_IP_SIZE                       8192  // 8KiB
+#define  RESET_CONTROLLER_SIZE                     8192  // 8KiB
+#define  RAVENOC_SLAVE_IF_SIZE                    16384  // 16KiB
+#define  MACHINE_TIMER_MTIMER_SIZE                 8192  // 8KiB
+#define  DMA_ENGINE_CONTROL_CSRS_SIZE              8192  // 8KiB
+#define  IRQ_CONTROLLER_SIZE                       8192  // 8KiB
+#define  ETHERNET_SLAVE_RGMII_SIZE                 8192  // 8KiB
+#define  ETHERNET_INFIFO_IF_SIZE                   8192  // 8KiB
+#define  ETHERNET_OUTFIFO_IF_SIZE                  8192  // 8KiB
 
 #endif

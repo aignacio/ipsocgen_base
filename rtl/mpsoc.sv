@@ -15,23 +15,7 @@ module mpsoc
 (
   input		logic	arty_a7_100MHz,
   input		logic	arty_a7_pll_rst,
-  input		logic	arty_a7_rst,
-  // Additional IOs use for final design
-  input               uart_switch_i, // 0 - Slave tiles, 1 - Master tile
-  input               bootloader_i,  // Active high
-  output  logic       uart_tx_o,
-  input               uart_rx_i,
-  // Ethernet: 1000BASE-T RGMII
-  input               phy_rx_clk,
-  input   [3:0]       phy_rxd,
-  input               phy_rx_ctl,
-  output              phy_tx_clk,
-  output  [3:0]       phy_txd,
-  output              phy_tx_ctl,
-  output              phy_reset_n,
-  input               phy_int_n,
-  input               phy_pme_n
-
+  input		logic	arty_a7_rst
 );
 
   logic clk_50MHz;
@@ -40,12 +24,6 @@ module mpsoc
   s_axi_miso_t [`NUM_TILES-1:0] slaves_axi_miso;
   s_axi_miso_t [`NUM_TILES-1:0] ravenoc_miso;
   s_irq_ni_t   [`NUM_TILES-1:0] irqs_ravenoc;
-  logic        [`NUM_TILES-1:0] uart_tx;
-  logic        [`NUM_TILES-1:0] uart_rx;
-  logic        master_bootloader;
-  logic        slave_bootloader;
-  logic        bootloader_int; 
-  logic        uart_switch_int; 
   logic rst_int_mpsoc;
 
   //
@@ -59,8 +37,7 @@ module mpsoc
   logic rst_pll;
   
   assign rst_pll = arty_a7_pll_rst;
-  assign bootloader_int = bootloader_i;
-  assign uart_switch_int = uart_switch_i;
+  
 
 `ifdef SIMULATION
   assign clk_50MHz = arty_a7_100MHz;
@@ -127,20 +104,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[0]),
     .noc_axi_mosi_o   (slaves_axi_mosi[0]),
-    .irq_ravenoc      (irqs_ravenoc[0]),
-    .uart_rx_i        (uart_rx[0]),
-    .bootloader_i     (master_bootloader),
-    .phy_rx_clk       (phy_rx_clk),
-    .phy_rxd          (phy_rxd),
-    .phy_rx_ctl       (phy_rx_ctl),
-    .phy_int_n        (phy_int_n),
-    .phy_pme_n        (phy_pme_n),
-    .clk_in_100MHz    (arty_a7_100MHz),
-    .uart_tx_o        (uart_tx[0]),
-    .phy_tx_clk       (phy_tx_clk),
-    .phy_txd          (phy_txd),
-    .phy_tx_ctl       (phy_tx_ctl),
-    .phy_reset_n      (phy_reset_n)
+    .irq_ravenoc      (irqs_ravenoc[0])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -151,10 +115,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[1]),
     .noc_axi_mosi_o   (slaves_axi_mosi[1]),
-    .irq_ravenoc      (irqs_ravenoc[1]),
-    .uart_rx_i        (uart_rx[1]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[1])
+    .irq_ravenoc      (irqs_ravenoc[1])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -165,10 +126,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[2]),
     .noc_axi_mosi_o   (slaves_axi_mosi[2]),
-    .irq_ravenoc      (irqs_ravenoc[2]),
-    .uart_rx_i        (uart_rx[2]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[2])
+    .irq_ravenoc      (irqs_ravenoc[2])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -179,10 +137,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[3]),
     .noc_axi_mosi_o   (slaves_axi_mosi[3]),
-    .irq_ravenoc      (irqs_ravenoc[3]),
-    .uart_rx_i        (uart_rx[3]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[3])
+    .irq_ravenoc      (irqs_ravenoc[3])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -193,10 +148,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[4]),
     .noc_axi_mosi_o   (slaves_axi_mosi[4]),
-    .irq_ravenoc      (irqs_ravenoc[4]),
-    .uart_rx_i        (uart_rx[4]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[4])
+    .irq_ravenoc      (irqs_ravenoc[4])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -207,10 +159,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[5]),
     .noc_axi_mosi_o   (slaves_axi_mosi[5]),
-    .irq_ravenoc      (irqs_ravenoc[5]),
-    .uart_rx_i        (uart_rx[5]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[5])
+    .irq_ravenoc      (irqs_ravenoc[5])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -221,10 +170,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[6]),
     .noc_axi_mosi_o   (slaves_axi_mosi[6]),
-    .irq_ravenoc      (irqs_ravenoc[6]),
-    .uart_rx_i        (uart_rx[6]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[6])
+    .irq_ravenoc      (irqs_ravenoc[6])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -235,10 +181,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[7]),
     .noc_axi_mosi_o   (slaves_axi_mosi[7]),
-    .irq_ravenoc      (irqs_ravenoc[7]),
-    .uart_rx_i        (uart_rx[7]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[7])
+    .irq_ravenoc      (irqs_ravenoc[7])
   );
   /* verilator lint_on PINMISSING */
   /* verilator lint_off PINMISSING */
@@ -249,10 +192,7 @@ module mpsoc
     .rst_in           (rst_int_mpsoc),
     .noc_axi_miso_i   (slaves_axi_miso[8]),
     .noc_axi_mosi_o   (slaves_axi_mosi[8]),
-    .irq_ravenoc      (irqs_ravenoc[8]),
-    .uart_rx_i        (uart_rx[8]),
-    .bootloader_i     (slave_bootloader),
-    .uart_tx_o        (uart_tx[8])
+    .irq_ravenoc      (irqs_ravenoc[8])
   );
   /* verilator lint_on PINMISSING */
 
@@ -260,23 +200,10 @@ module mpsoc
     ravenoc_mosi    = slaves_axi_mosi;
     slaves_axi_miso = ravenoc_miso;
 
-    master_bootloader = 1'b0;
-    slave_bootloader = 1'b0;
-
-    if (uart_switch_int) begin
-      master_bootloader = bootloader_int;
-      uart_tx_o = uart_tx[0]; // Connect Master Tile to the main UART
-    end
-    else begin
-      slave_bootloader = bootloader_int;
-      uart_tx_o = uart_tx[1]; // Connect Slave Tile #0 to the main UART
-    end
-
     // NoC only accepts INCR type of burst
     for (int i=0;i<`NUM_TILES;i++) begin
       ravenoc_mosi[i].arburst = AXI_INCR;
       ravenoc_mosi[i].awburst = AXI_INCR;
-      uart_rx[i] = uart_rx_i;
     end
   end
 

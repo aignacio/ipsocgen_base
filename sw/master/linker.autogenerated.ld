@@ -6,8 +6,8 @@ __rv32_heap_size = DEFINED(__rv32_heap_size) ? __rv32_heap_size : 0;
 
 MEMORY
 {
-  iram (rx) : ORIGIN = 0x40000, LENGTH = 30K
-  ram (rwx) : ORIGIN = 0x20000, LENGTH = 16K
+  iram (rx) : ORIGIN = 0x40000, LENGTH = 30720
+  ram (rwx) : ORIGIN = 0x20000, LENGTH = 16384
 }
 
 SECTIONS
