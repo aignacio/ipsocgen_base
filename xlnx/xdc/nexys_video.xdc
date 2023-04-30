@@ -3,12 +3,12 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
 
 ## Clock Signal
-set_property -dict { PACKAGE_PIN R4   IOSTANDARD LVCMOS33 } [get_ports { arty_a7_100MHz }]; #IO_L13P_T2_MRCC_34 Sch=sysclk
-create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports arty_a7_100MHz]
+set_property -dict { PACKAGE_PIN R4   IOSTANDARD LVCMOS33 } [get_ports { clk_in }]; #IO_L13P_T2_MRCC_34 Sch=sysclk
+create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clk_in]
 
-#set_property -dict { PACKAGE_PIN G4  IOSTANDARD LVCMOS15 } [get_ports { arty_a7_rst }]; #IO_L12N_T1_MRCC_35 Sch=cpu_resetn
-set_property -dict { PACKAGE_PIN C22 IOSTANDARD LVCMOS12 } [get_ports { arty_a7_rst }]; #IO_L20P_T3_16 Sch=btnl
-set_property -dict { PACKAGE_PIN B22 IOSTANDARD LVCMOS12 } [get_ports { arty_a7_pll_rst }]; #IO_L20N_T3_16 Sch=btnc
+#set_property -dict { PACKAGE_PIN G4  IOSTANDARD LVCMOS15 } [get_ports { rst_cpu }]; #IO_L12N_T1_MRCC_35 Sch=cpu_resetn
+set_property -dict { PACKAGE_PIN C22 IOSTANDARD LVCMOS12 } [get_ports { rst_cpu }]; #IO_L20P_T3_16 Sch=btnl
+set_property -dict { PACKAGE_PIN B22 IOSTANDARD LVCMOS12 } [get_ports { rst_clk }]; #IO_L20N_T3_16 Sch=btnc
 
 set_property -dict { PACKAGE_PIN AA19  IOSTANDARD LVCMOS33 } [get_ports { uart_tx_o }]; #IO_L15P_T2_DQS_RDWR_B_14 Sch=uart_rx_out
 set_property -dict { PACKAGE_PIN V18   IOSTANDARD LVCMOS33 } [get_ports { uart_rx_i }]; #IO_L14P_T2_SRCC_14 Sch=uart_tx_in
@@ -44,9 +44,4 @@ set_input_delay 0 [get_ports {phy_int_n phy_pme_n}]
 set_property IDELAY_VALUE 0 [get_cells {u_tile_0/u_eth/phy_rx_ctl_idelay u_tile_0/u_eth/phy_rxd_idelay_*}]
 
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks sys_clk_pin]
-set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins u_clk_pll/CLKOUT0]] -group [get_clocks -of_objects [get_pins {u_tile_0/u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]]
-set_property -dict { PACKAGE_PIN T14   IOSTANDARD LVCMOS25 } [get_ports { pll_locked }]; #IO_L15P_T2_DQS_13 Sch=led[0]
-#
-#set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins u_clk_mgmt/plle2_adv_100_to_50MHz_inst/CLKOUT0]] -group [get_clocks phy_rx_clk]
-#set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]] -group [get_clocks phy_rx_clk]
-#set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]] -group [get_clocks -of_objects [get_pins {gen_tiles[0].master.u_master_tile/u_ethernet/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT1}]]
+set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins plle2_adv_100_to_50MHz_inst/CLKOUT0]] -group [get_clocks -of_objects [get_pins {u_tile_0/u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]]

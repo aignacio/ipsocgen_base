@@ -1,21 +1,19 @@
 /**
  * File              : mpsoc.sv
  * License           : MIT license <Check LICENSE>
- * Author            : IPSoCGen
- * Date              : 15/04/2023 12:16:24
- * Description       : Description of the MP/SoC to be generated
- * -------------------------------------------
- * -- Design AUTO-GENERATED using IPSoC Gen --
- * -------------------------------------------
- **/
+ * Author            : Anderson Ignacio da Silva (aignacio) <anderson@aignacio.com>
+ * Date              : 12.03.2022
+ * Last Modified Date: 04.05.2022
+ */
 module mpsoc
   import amba_axi_pkg::*;
+  import amba_ahb_pkg::*;
   import ravenoc_pkg::*;
   import eth_pkg::*;
 (
-  input		            arty_a7_100MHz,
-  input		            arty_a7_pll_rst,
-  input		            arty_a7_rst,
+  input               clk_in,
+  input               rst_clk,       // Active high
+  input               rst_cpu,       // Active high
   input               uart_switch_i, // 0 - Slave tiles, 1 - Master tile
   input               bootloader_i,  // Active high
   output  logic       uart_tx_o,
@@ -24,37 +22,61 @@ module mpsoc
   input               phy_rx_clk,
   input   [3:0]       phy_rxd,
   input               phy_rx_ctl,
-  output  logic       phy_tx_clk,
-  output  logic [3:0] phy_txd,
-  output  logic       phy_tx_ctl,
-  output  logic       phy_reset_n,
+  output              phy_tx_clk,
+  output  [3:0]       phy_txd,
+  output              phy_tx_ctl,
+  output              phy_reset_n,
   input               phy_int_n,
-  input               phy_pme_n,
-  output  logic       pll_locked
+  input               phy_pme_n
 );
+  s_axi_mosi_t  [`NUM_TILES-1:0] slaves_axi_mosi, ravenoc_mosi;
+  s_axi_miso_t  [`NUM_TILES-1:0] slaves_axi_miso, ravenoc_miso;
+  s_irq_ni_t    [`NUM_TILES-1:0] irqs_ravenoc;
 
-  logic clk_50MHz;
-  s_axi_mosi_t [`NUM_TILES-1:0] slaves_axi_mosi;
-  s_axi_mosi_t [`NUM_TILES-1:0] ravenoc_mosi;
-  s_axi_miso_t [`NUM_TILES-1:0] slaves_axi_miso;
-  s_axi_miso_t [`NUM_TILES-1:0] ravenoc_miso;
-  s_irq_ni_t   [`NUM_TILES-1:0] irqs_ravenoc;
-  logic rst_int_mpsoc;
+  logic                  start_fetch;
+  logic                  clk;
+  logic                  rst;
+  logic [`NUM_TILES-1:0] uart_tx;
+  logic [`NUM_TILES-1:0] uart_rx;
+  logic                  master_bootloader;
+  logic                  slave_bootloader;
 
-  //
-  // Clk/PLL signals
-  //
-  logic clk_in_buff;
-  logic clk_buff_out;
-  logic clk_feedback_in;
-  logic clk_feedback_out;
-  logic rst_pll;
-  
-  assign rst_pll = arty_a7_pll_rst;
-  
-  //
-  // PLLE2_BASE: Base Phase Locked Loop (PLL)
-  //             7 Series
+  logic                  rst_clk_int;
+  logic                  uart_switch_int;
+  logic                  bootloader_int;
+
+`ifdef SIMULATION
+  assign  clk         = clk_in;
+  assign  start_fetch = 'b1;
+  assign  rst         = rst_cpu;
+
+  assign  uart_switch_int = uart_switch_i;
+  assign  bootloader_int  = bootloader_i;
+`else
+  assign  rst             = rst_cpu;
+  assign  rst_clk_int     = rst_clk;
+  assign  uart_switch_int = uart_switch_i;
+  assign  bootloader_int  = bootloader_i;
+
+  logic   clk_feedback_in;
+  logic   clk_feedback_out;
+  logic   clk_buff_in;
+
+  IBUF clk_in_ibufg(
+    .I (clk_in),
+    .O (clk_in_buff)
+  );
+
+  BUFG clk_feedback_buf(
+    .I (clk_feedback_in),
+    .O (clk_feedback_out)
+  );
+
+  BUFG clk_out_buf(
+    .I (clk_buff_in),
+    .O (clk)
+  );
+
   PLLE2_ADV#(
     .BANDWIDTH           ("OPTIMIZED"),
     .COMPENSATION        ("ZHOLD"),
@@ -65,10 +87,15 @@ module mpsoc
     .CLKOUT0_DIVIDE      (17),
     .CLKOUT0_PHASE       (0.000),
     .CLKOUT0_DUTY_CYCLE  (0.500),
-    .CLKIN1_PERIOD       (10)
-  ) u_clk_pll (
+    .CLKIN1_PERIOD       (10.000)
+  ) plle2_adv_100_to_50MHz_inst (
     .CLKFBOUT            (clk_feedback_in),
-    .CLKOUT0             (clk_buff_out),
+    .CLKOUT0             (clk_buff_in),
+    .CLKOUT1             (),
+    .CLKOUT2             (),
+    .CLKOUT3             (),
+    .CLKOUT4             (),
+    .CLKOUT5             (),
      // Input clock control
     .CLKFBIN             (clk_feedback_out),
     .CLKIN1              (clk_in_buff),
@@ -80,42 +107,129 @@ module mpsoc
     .DCLK                (1'b0),
     .DEN                 (1'b0),
     .DI                  (16'h0),
+    .DO                  (),
+    .DRDY                (),
     .DWE                 (1'b0),
     // Other control and status signals
-    .LOCKED              (pll_locked),
+    .LOCKED              (),
     .PWRDWN              (1'b0),
-    .RST                 (rst_pll)
+    .RST                 (rst_clk)
+  );
+`endif
+
+  tile_0 u_tile_0 (
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[0]),
+    .noc_axi_miso_i (slaves_axi_miso[0]),
+    .uart_rx_i      (uart_rx[0]),
+    .bootloader_i   (master_bootloader),
+    .phy_rx_clk     (phy_rx_clk),
+    .phy_rxd        (phy_rxd),
+    .phy_rx_ctl     (phy_rx_ctl),
+    .phy_int_n      (phy_int_n),
+    .phy_pme_n      (phy_pme_n),
+    .clk_in_100MHz  (clk_in),
+    .noc_axi_mosi_o (slaves_axi_mosi[0]),
+    .uart_tx_o      (uart_tx[0]),
+    .phy_tx_clk     (phy_tx_clk),
+    .phy_txd        (phy_txd),
+    .phy_tx_ctl     (phy_tx_ctl),
+    .phy_reset_n    (phy_reset_n)
+  ); 
+
+  tile_1 u_tile_1(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[1]),
+    .noc_axi_miso_i (slaves_axi_miso[1]),
+    .uart_rx_i      (uart_rx[1]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[1]),
+    .uart_tx_o      (uart_tx[1])
   );
 
-  IBUF clk_in_ibufg(
-    .I (arty_a7_100MHz),
-    .O (clk_in_buff)
+  tile_2 u_tile_2(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[2]),
+    .noc_axi_miso_i (slaves_axi_miso[2]),
+    .uart_rx_i      (uart_rx[2]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[2]),
+    .uart_tx_o      (uart_tx[2])
   );
 
-  BUFG clk_feedback_buf(
-    .I (clk_feedback_in),
-    .O (clk_feedback_out)
+  tile_3 u_tile_3(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[3]),
+    .noc_axi_miso_i (slaves_axi_miso[3]),
+    .uart_rx_i      (uart_rx[3]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[3]),
+    .uart_tx_o      (uart_tx[3])
   );
 
-  BUFG clk_out_buf(
-    .I (clk_buff_out),
-    .O (clk_50MHz)
+  tile_4 u_tile_4(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[4]),
+    .noc_axi_miso_i (slaves_axi_miso[4]),
+    .uart_rx_i      (uart_rx[4]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[4]),
+    .uart_tx_o      (uart_tx[4])
   );
-  
-  logic [`NUM_TILES-1:0] uart_tx;
-  logic [`NUM_TILES-1:0] uart_rx;
-  logic                  master_bootloader;
-  logic                  slave_bootloader;
 
-  logic                  uart_switch_int;
-  logic                  bootloader_int;
+  tile_5 u_tile_5(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[5]),
+    .noc_axi_miso_i (slaves_axi_miso[5]),
+    .uart_rx_i      (uart_rx[5]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[5]),
+    .uart_tx_o      (uart_tx[5])
+  );
 
-  assign  uart_switch_int = uart_switch_i;
-  assign  bootloader_int  = bootloader_i;
-  
-  assign rst_int_mpsoc = arty_a7_rst;
-  
+  tile_6 u_tile_6(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[6]),
+    .noc_axi_miso_i (slaves_axi_miso[6]),
+    .uart_rx_i      (uart_rx[6]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[6]),
+    .uart_tx_o      (uart_tx[6])
+  );
+
+  tile_7 u_tile_7(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[7]),
+    .noc_axi_miso_i (slaves_axi_miso[7]),
+    .uart_rx_i      (uart_rx[7]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[7]),
+    .uart_tx_o      (uart_tx[7])
+  );
+
+  tile_8 u_tile_8(
+    .clk_in         (clk),
+    .rst_in         (rst),
+    .irq_ravenoc    (irqs_ravenoc[8]),
+    .noc_axi_miso_i (slaves_axi_miso[8]),
+    .uart_rx_i      (uart_rx[8]),
+    .bootloader_i   (slave_bootloader),
+    .noc_axi_mosi_o (slaves_axi_mosi[8]),
+    .uart_tx_o      (uart_tx[8])
+  );
+
   always_comb begin
+    ravenoc_mosi    = slaves_axi_mosi;
+    slaves_axi_miso = ravenoc_miso;
+
     master_bootloader = 1'b0;
     slave_bootloader = 1'b0;
 
@@ -128,177 +242,21 @@ module mpsoc
       uart_tx_o = uart_tx[1]; // Connect Slave Tile #0 to the main UART
     end
 
-    for (int i=0;i<`NUM_TILES;i++) begin
-      uart_rx[i] = uart_rx_i;
-    end
-  end
-
-
-  /* verilator lint_off PINMISSING */
-  // tile_0
-  tile_0 u_tile_0 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[0]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[0]),
-    .irq_ravenoc      (irqs_ravenoc[0]),
-    .clk_in_100MHz    (arty_a7_100MHz),
-    .uart_tx_o        (uart_tx[0]),
-    .uart_rx_i        (uart_rx[0]),
-    .bootloader_i     (master_bootloader),
-    .phy_rx_clk       (phy_rx_clk),
-    .phy_rxd          (phy_rxd),
-    .phy_rx_ctl       (phy_rx_ctl),
-    .phy_int_n        (phy_int_n),
-    .phy_pme_n        (phy_pme_n),
-    .phy_tx_clk       (phy_tx_clk),
-    .phy_txd          (phy_txd),
-    .phy_tx_ctl       (phy_tx_ctrl),
-    .phy_reset_n      (phy_reset_n)
-  );
-
-  //ila_0 ila (
-    //.clk(clk_50MHz), // input wire clk
-    //.probe0(u_tile_0.rst_addr), // input wire [31:0]  probe0  
-    //.probe1(u_tile_0.masters_axi_mosi[0].araddr), // input wire [31:0]  probe1 
-    //.probe2(u_tile_0.masters_axi_mosi[0].arvalid), // input wire [0:0]  probe2 
-    //.probe3(u_tile_0.rst_int), // input wire [31:0]  probe3 
-    //.probe4(u_tile_0.masters_axi_miso[0].rvalid), // input wire [0:0]  probe4 
-    //.probe5(u_tile_0.masters_axi_miso[0].rdata) // input wire [31:0]  probe5
-  //);
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_1
-  tile_1 u_tile_1 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[1]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[1]),
-    .irq_ravenoc      (irqs_ravenoc[1]),
-    .uart_tx_o        (uart_tx[1]),
-    .uart_rx_i        (uart_rx[1]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_2
-  tile_2 u_tile_2 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[2]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[2]),
-    .irq_ravenoc      (irqs_ravenoc[2]),
-    .uart_tx_o        (uart_tx[2]),
-    .uart_rx_i        (uart_rx[2]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_3
-  tile_3 u_tile_3 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[3]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[3]),
-    .irq_ravenoc      (irqs_ravenoc[3]),
-    .uart_tx_o        (uart_tx[3]),
-    .uart_rx_i        (uart_rx[3]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_4
-  tile_4 u_tile_4 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[4]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[4]),
-    .irq_ravenoc      (irqs_ravenoc[4]),
-    .uart_tx_o        (uart_tx[4]),
-    .uart_rx_i        (uart_rx[4]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_5
-  tile_5 u_tile_5 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[5]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[5]),
-    .irq_ravenoc      (irqs_ravenoc[5]),
-    .uart_tx_o        (uart_tx[5]),
-    .uart_rx_i        (uart_rx[5]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_6
-  tile_6 u_tile_6 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[6]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[6]),
-    .irq_ravenoc      (irqs_ravenoc[6]),
-    .uart_tx_o        (uart_tx[6]),
-    .uart_rx_i        (uart_rx[6]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_7
-  tile_7 u_tile_7 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[7]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[7]),
-    .irq_ravenoc      (irqs_ravenoc[7]),
-    .uart_tx_o        (uart_tx[7]),
-    .uart_rx_i        (uart_rx[7]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-  /* verilator lint_off PINMISSING */
-  // tile_8
-  tile_8 u_tile_8 (
-    // Mandatory IOs
-    .clk_in           (clk_50MHz),
-    .rst_in           (rst_int_mpsoc),
-    .noc_axi_miso_i   (slaves_axi_miso[8]),
-    .noc_axi_mosi_o   (slaves_axi_mosi[8]),
-    .irq_ravenoc      (irqs_ravenoc[8]),
-    .uart_tx_o        (uart_tx[8]),
-    .uart_rx_i        (uart_rx[8]),
-    .bootloader_i     (slave_bootloader)
-  );
-  /* verilator lint_on PINMISSING */
-
-  always_comb begin
-    ravenoc_mosi    = slaves_axi_mosi;
-    slaves_axi_miso = ravenoc_miso;
-
     // NoC only accepts INCR type of burst
     for (int i=0;i<`NUM_TILES;i++) begin
       ravenoc_mosi[i].arburst = AXI_INCR;
       ravenoc_mosi[i].awburst = AXI_INCR;
+      uart_rx[i] = uart_rx_i;
     end
   end
 
   ravenoc #(
     .AXI_CDC_REQ      ('0)
-  ) u_ravenoc (
-    .clk_axi          ({ `NUM_TILES { clk_50MHz }}),
-    .clk_noc          (clk_50MHz),
-    .arst_axi         ({ `NUM_TILES { rst_int_mpsoc }}),
-    .arst_noc         (rst_int_mpsoc),
+  ) u_noc (
+    .clk_axi          ({`NUM_TILES{clk}}),
+    .clk_noc          (clk),
+    .arst_axi         ({`NUM_TILES{rst}}),
+    .arst_noc         (rst),
     // NI interfaces
     .axi_mosi_if      (ravenoc_mosi),
     .axi_miso_if      (ravenoc_miso),
@@ -307,5 +265,4 @@ module mpsoc
     // Used only in tb to bypass cdc module
     .bypass_cdc       ('0)
   );
-
 endmodule

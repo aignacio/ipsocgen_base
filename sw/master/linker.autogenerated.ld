@@ -6,8 +6,8 @@ __rv32_heap_size = DEFINED(__rv32_heap_size) ? __rv32_heap_size : 0;
 
 MEMORY
 {
-  iram (rx) : ORIGIN = INSTRUCTION_RAM_BASE_ADDR, LENGTH = 20K
-  ram (rwx) : ORIGIN = DATA_RAM_BASE_ADDR, LENGTH = 16K
+  iram (rx) : ORIGIN = 0x40000, LENGTH = 30K
+  ram (rwx) : ORIGIN = 0x20000, LENGTH = 16K
 }
 
 SECTIONS
@@ -70,7 +70,6 @@ SECTIONS
     /* constant data like strings */
     *(.rodata .rodata.* .gnu.linkonce.r.*)
     *(.rodata1)
-
     /* finish section on WORD boundary */
     . = ALIGN(4);
     __RODATA_END__ = .;
@@ -108,6 +107,10 @@ SECTIONS
     __global_pointer$ = __DATA_END__ + 0x800;
   } > ram AT > iram
 
+  .all_images : ALIGN(4)
+  {
+    *(.image)
+  } > ram AT > iram
 
   /* zero/non-initialized read/write data placed in RAM - not part of the final executable */
   .bss (NOLOAD): ALIGN(4)
@@ -233,7 +236,7 @@ SECTIONS
   PROVIDE(__crt0_bss_end             = __BSS_END__);
   PROVIDE(__crt0_copy_data_src_begin = LOADADDR(.data));
   PROVIDE(__crt0_copy_data_dst_begin = ADDR(.data));
-  PROVIDE(__crt0_copy_data_dst_end   = ADDR(.data) + SIZEOF(.data));
+  PROVIDE(__crt0_copy_data_dst_end   = ADDR(.data) + SIZEOF(.data) + SIZEOF(.all_images));
   PROVIDE(__crt0_io_space_begin      = ORIGIN(iodev));
   PROVIDE(__crt0_io_space_end        = ORIGIN(iodev) + LENGTH(iodev));
 }
