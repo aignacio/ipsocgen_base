@@ -31,7 +31,6 @@ fusesoc.conf
 output_temp/
 riscof_work/
 riscv-arch-test/
-*.txt
 .txt
 *.jou
 *.fst.hier
