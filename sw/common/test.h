@@ -2,11 +2,11 @@
 #define TEST_H
 
 // AUTO-GENERATED header file through IPSoCGen
-// 08/04/2023 13:22:11
+// 30/04/2023 15:12:20
 
 // Master ID  Description
-// 0          NoX CPU - Instr. I/F
-// 1          NoX CPU - LSU I/F
+// 0          NoX CPU - Instr. IF
+// 1          NoX CPU - LSU IF
 // 2          DMA Engine
 // 3          Custom Master ACC.
 
@@ -31,5 +31,16 @@
 #define  IRQ_CONTROLLER_BASE_ADDR    0x16000
 #define  RESET_CONTROLLER_BASE_ADDR  0x18000
 #define  MY_CUSTOM_ACC_BASE_ADDR     0x1a000
+
+//       SLAVE                    MEM SIZE BYTES  SIZE KiB
+#define  INSTRUCTION_RAM_SIZE              16384  // 16KiB
+#define  DATA_RAM_SIZE                      8192  // 8KiB
+#define  BOOT_ROM_IMAGE_SIZE               20480  // 20KiB
+#define  UART_SERIAL_IP_SIZE                8192  // 8KiB
+#define  MACHINE_TIMER_SIZE                 8192  // 8KiB
+#define  DMA_ENGINE_CSRS_SIZE               8192  // 8KiB
+#define  IRQ_CONTROLLER_SIZE                8192  // 8KiB
+#define  RESET_CONTROLLER_SIZE              8192  // 8KiB
+#define  MY_CUSTOM_ACC_SIZE                 8192  // 8KiB
 
 #endif

@@ -2,13 +2,12 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 10/04/2023 12:59:33
+ * Date              : 30/04/2023 15:12:20
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
  * -------------------------------------------
  **/
-
 module test
   import amba_axi_pkg::*;
   import eth_pkg::*;
@@ -98,8 +97,8 @@ module test
 `endif
   
 // Master ID  Description
-// 0          NoX CPU - Instr. I/F
-// 1          NoX CPU - LSU I/F
+// 0          NoX CPU - Instr. IF
+// 1          NoX CPU - LSU IF
 // 2          DMA Engine
 // 3          Custom Master ACC.
 
@@ -287,10 +286,11 @@ module test
   );
 
   logic [31:0] irq_vector_mapping;
-
-  assign irq_vector_mapping = '0; // Default assignment
   assign irq_vector_mapping[0] = dma_error;
   assign irq_vector_mapping[1] = dma_done;
+  
+  assign irq_vector_mapping[31:2] = '0; // TIE-L not used IRQs
+  
 
   //
   // IRQ Controller
