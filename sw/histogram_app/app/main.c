@@ -40,7 +40,6 @@ static void vprvProcImg (void *pvParameters) {
   }
 }
 
-
 static void vprvSetEth (void) {
   EthLocalCfg_t xLocalCfg = {
     .IPAddr.bytes     = {192, 168,   1, 130},
