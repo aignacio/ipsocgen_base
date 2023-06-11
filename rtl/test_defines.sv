@@ -2,7 +2,7 @@
  * File              : test_defines.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 11/06/2023 14:08:45
+ * Date              : 11/06/2023 15:14:51
  * Description       : Verilog defines configuration file
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --

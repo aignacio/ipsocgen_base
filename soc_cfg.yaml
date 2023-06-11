@@ -66,12 +66,12 @@ soc_desc:
       name: iram
       type: ram_mem # ram_mem, rom_mem, acc_uart, acc_timer, acc_dma, acc_irq, acc_rst, acc_eth, acc_custom_slave
       desc: Instruction RAM
-      mem_size_kib: 16
+      mem_size_kib: 32
     1:
       name: dram
       type: ram_mem
       desc: Data RAM
-      mem_size_kib: 8
+      mem_size_kib: 16
     2:
       name: boot_rom
       type: rom_mem

@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 11/06/2023 14:08:45
+ * Date              : 11/06/2023 15:14:51
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -116,17 +116,17 @@ module test
 // 2          DMA Engine
 
 // Slave ID  Base Addr  End Addr  Size (KiB)  Description
-// 0         0x0        0x3fff    16          Instruction RAM
-// 1         0x4000     0x5fff    8           Data RAM
-// 2         0x8000     0xffff    32          Boot ROM image
-// 3         0x10000    0x11fff   8           UART Serial IP
-// 4         0x12000    0x13fff   8           Machine Timer
-// 5         0x14000    0x15fff   8           DMA Engine CSRs
-// 6         0x16000    0x17fff   8           IRQ Controller
-// 7         0x18000    0x19fff   8           Reset Controller
-// 8         0x1a000    0x1afff   4           Ethernet CSR
-// 9         0x1b000    0x1bfff   4           Ethernet InFIFO IF
-// 10        0x1c000    0x1cfff   4           Ethernet OutFIFO IF
+// 0         0x0        0x7fff    32          Instruction RAM
+// 1         0x8000     0xbfff    16          Data RAM
+// 2         0x10000    0x17fff   32          Boot ROM image
+// 3         0x18000    0x19fff   8           UART Serial IP
+// 4         0x1a000    0x1bfff   8           Machine Timer
+// 5         0x1c000    0x1dfff   8           DMA Engine CSRs
+// 6         0x1e000    0x1ffff   8           IRQ Controller
+// 7         0x20000    0x21fff   8           Reset Controller
+// 8         0x22000    0x22fff   4           Ethernet CSR
+// 9         0x23000    0x23fff   4           Ethernet InFIFO IF
+// 10        0x24000    0x24fff   4           Ethernet OutFIFO IF
 
   s_axi_mosi_t  [2:0] masters_axi_mosi;
   s_axi_miso_t  [2:0] masters_axi_miso;
@@ -142,16 +142,16 @@ module test
     .N_MASTERS        (3),
     .N_SLAVES         (11),
     .AXI_TID_WIDTH    (8),
-    .M_BASE_ADDR      ({32'h1c000,
-                        32'h1b000,
+    .M_BASE_ADDR      ({32'h24000,
+                        32'h23000,
+                        32'h22000,
+                        32'h20000,
+                        32'h1e000,
+                        32'h1c000,
                         32'h1a000,
                         32'h18000,
-                        32'h16000,
-                        32'h14000,
-                        32'h12000,
                         32'h10000,
                         32'h8000,
-                        32'h4000,
                         32'h0}),
     .M_ADDR_WIDTH     ({32'd12,
                         32'd12,
@@ -162,8 +162,8 @@ module test
                         32'd13,
                         32'd13,
                         32'd15,
-                        32'd13,
-                        32'd14})
+                        32'd14,
+                        32'd15})
   ) u_axi4_crossbar (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),
@@ -189,7 +189,7 @@ module test
   // Instruction RAM
   //
   axi_mem_wrapper #(
-    .MEM_KB           (16),
+    .MEM_KB           (32),
     .ID_WIDTH         (8)
   ) u_iram (
     .clk              (clk_50MHz),
@@ -211,7 +211,7 @@ module test
   // Data RAM
   //
   axi_mem_wrapper #(
-    .MEM_KB           (8),
+    .MEM_KB           (16),
     .ID_WIDTH         (8)
   ) u_dram (
     .clk              (clk_50MHz),
@@ -256,7 +256,7 @@ module test
   // Machine Timer
   //
   axi_timer #(
-    .BASE_ADDR        ('h12000)
+    .BASE_ADDR        ('h1a000)
   ) u_timer (
     .clk              (clk_50MHz),
     .rst              (rst_int_soc),
@@ -310,7 +310,7 @@ module test
   // IRQ Controller
   //
   axi_irq_ctrl #(
-    .BASE_ADDR        ('h16000),
+    .BASE_ADDR        ('h1e000),
     .TYPE_OF_IRQ      ('hffffffff)
   ) u_irq_ctrl (
     .clk              (clk_50MHz),
@@ -325,8 +325,8 @@ module test
   // Reset Controller
   //
   axi_rst_ctrl #(
-    .RESET_VECTOR_ADDR ('h8000),
-    .BASE_ADDR         ('h18000),
+    .RESET_VECTOR_ADDR ('h10000),
+    .BASE_ADDR         ('h20000),
     .RESET_PULSE_WIDTH (4)
   ) u_rst_ctrl  (
     .clk               (clk_50MHz),
