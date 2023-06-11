@@ -1,0 +1,149 @@
+proj_name: test # no spaces
+desc: Description of the MP/SoC to be generated
+type: soc # soc, mpsoc
+#fpga_board: arty_a7 # none, arty_a7, nexys_video, aliexpress_qmtech_k325
+
+soc_desc:
+  bus_name:     axi4_crossbar  # axi4
+  bus_type:     axi4  # axi4
+  addr_width:   32    # 32, 64
+  data_width:   32    # 32, 64
+  txn_id_width: 8     # 8
+  num_masters:  4     # >= 2
+  num_slaves:   12    # >= 1
+  proc_required: y
+  mmap_type:    auto  # auto, manual
+  clk: &clk_int
+    name:       clk_pll
+    clk_int:    clk_50MHz
+    io_in_clk:  arty_a7_100MHz
+    type:       pll # pll, direct
+    pll: # if type == pll
+      divclk_divide:    2
+      clkfbout_mult:    17
+      clkout_divide:    17
+      io_rst_pin:       arty_a7_pll_rst
+      rst_in_type:      act_h
+      clkin_period:     10
+  rst: &rst_int
+    name:         rst
+    rst_int:      rst_int_soc
+    io_in_rst:    arty_a7_rst
+    rst_in_type:  act_h
+    type:         acc_rst # acc_rst (req. acc_rst) OR direct
+  proc:
+    name: nox
+    type: nox # nox, vex
+    clk: *clk_int
+    rst: *rst_int
+    boot:
+      type:   signal    # slave, value OR signal
+      signal: rst_addr  # any string => if type == signal
+      #slave:  7        # slave id   => if type == slave_id
+      #value:  0        # any value  => if type == value
+    irq_mapping:
+      timer:    irq_mtimer    # name or zero
+      software: irq_uart_rx   # name or zero
+      external: irq_ctrl_ext  # name or zero
+  masters:
+    0:
+      name: nox_fetch # need to be unique
+      desc: NoX CPU - Instr. IF
+      type: cpu_nox # cpu_nox, acc_dma, acc_custom_master
+      if:   nox_instr_bus
+    1:
+      name: nox_lsu
+      desc: NoX CPU - LSU IF
+      type: cpu_nox
+      if:   nox_lsu_bus
+    2:
+      name: dma_0 # Need to be the same name as the slave for the DMA
+      desc: DMA Engine
+      type: acc_dma
+      if:   dma_master
+    3:
+      name: custom_master
+      desc: Custom Master ACC.
+      type: acc_custom_master
+  slaves:
+    0:
+      name: iram
+      type: ram_mem # ram_mem, rom_mem, acc_uart, acc_timer, acc_dma, acc_irq, acc_rst, acc_eth, acc_custom_slave
+      desc: Instruction RAM
+      mem_size_kib: 16
+    1:
+      name: dram
+      type: ram_mem
+      desc: Data RAM
+      mem_size_kib: 8
+    2:
+      name: boot_rom
+      type: rom_mem
+      desc: Boot ROM image
+      mem_size_kib: 20
+    3:
+      name:  uart
+      type:  acc_uart
+      desc:  UART Serial IP
+      io_rx: arty_a7_uart_rx
+      io_tx: arty_a7_uart_tx
+      irq_uart_rx: irq_uart_rx
+    4:
+      name: timer
+      type: acc_timer
+      desc: Machine Timer
+      irq_timer: irq_mtimer
+    5:
+      name: dma_0
+      type: acc_dma
+      desc: DMA Engine CSRs
+      irq_dma_done: dma_done
+      irq_dma_error: dma_error
+    6:
+      name: irq_ctrl
+      type: acc_irq
+      desc: IRQ Controller
+      irq_type: 0xFFFFFFFF
+      irq_summary: irq_ctrl_ext
+      vec_mapping:
+        - dma_error
+        - dma_done
+        - 1'b0
+        - 1'b0
+        - eth_pkt_recv_irq
+        - eth_pkt_sent_irq
+        - eth_pkt_recv_full_irq
+    7:
+      name: rst_ctrl
+      type: acc_rst
+      desc: Reset Controller
+      rst_def_addr:    0 # Slave ID
+      rst_pulse_width: 4 # >= 2
+      rst_addr_out:    rst_addr
+      io_bootloader:   arty_a7_sw_1
+      bootloader_type: act_h
+      <<: *rst_int # Copy for the io_in_rst
+    8:
+      name: acc_custom
+      type: acc_custom_slave
+      desc: My custom acc
+      mem_size_kib: 8
+    9:
+      name: eth
+      desc: Ethernet CSR
+      type: acc_eth
+      eth_type: csr
+      clk_ext: clk_in_100MHz
+      pkt_recv_irq: eth_pkt_recv_irq
+      pkt_sent_irq: eth_pkt_sent_irq
+      pkt_recv_full_irq: eth_pkt_recv_full_irq
+    10:
+      name: eth_infifo
+      desc: Ethernet InFIFO IF
+      type: acc_eth
+      eth_type: infifo
+    11:
+      name: eth_outfifo
+      desc: Ethernet OutFIFO IF
+      type: acc_eth
+      eth_type: outfifo

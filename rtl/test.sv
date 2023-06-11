@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 30/04/2023 15:12:20
+ * Date              : 11/06/2023 11:18:42
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -13,11 +13,21 @@ module test
   import eth_pkg::*;
 (
   input		logic	arty_a7_100MHz,
-  input		logic	arty_a7_sw_0,
-  input		logic	arty_a7_rst_n,
+  input		logic	arty_a7_pll_rst,
+  input		logic	arty_a7_rst,
   input		logic	arty_a7_uart_rx,
   input		logic	arty_a7_sw_1,
-  output	logic	arty_a7_uart_tx
+  input		logic	phy_rx_clk,
+  input		logic [3:0]	phy_rxd,
+  input		logic	phy_rx_ctl,
+  input		logic	phy_int_n,
+  input		logic	phy_pme_n,
+  input		logic	clk_in_100MHz,
+  output	logic	arty_a7_uart_tx,
+  output	logic	phy_tx_clk,
+  output	logic [3:0]	phy_txd,
+  output	logic	phy_tx_ctl,
+  output	logic	phy_reset_n
 );
 
   logic clk_50MHz;
@@ -28,6 +38,11 @@ module test
   logic dma_done;
   logic dma_error;
   logic irq_ctrl_ext;
+  logic eth_pkt_recv_irq;
+  logic eth_pkt_sent_irq;
+  logic eth_pkt_recv_full_irq;
+  s_rgmii_tx_t phy_tx;
+  s_rgmii_rx_t phy_rx;
 
   //
   // Clk/PLL signals
@@ -39,7 +54,7 @@ module test
   logic pll_locked;
   logic rst_pll;
   
-  assign rst_pll = ~arty_a7_sw_0;
+  assign rst_pll = arty_a7_pll_rst;
   
 
 `ifdef SIMULATION
@@ -112,11 +127,14 @@ module test
 // 6         0x16000    0x17fff   8           IRQ Controller
 // 7         0x18000    0x19fff   8           Reset Controller
 // 8         0x1a000    0x1bfff   8           My custom acc
+// 9         0x1c000    0x1cfff   4           Ethernet CSR
+// 10        0x1d000    0x1dfff   4           Ethernet InFIFO IF
+// 11        0x1e000    0x1efff   4           Ethernet OutFIFO IF
 
   s_axi_mosi_t  [3:0] masters_axi_mosi;
   s_axi_miso_t  [3:0] masters_axi_miso;
-  s_axi_mosi_t  [8:0] slaves_axi_mosi;
-  s_axi_miso_t  [8:0] slaves_axi_miso;
+  s_axi_mosi_t  [11:0] slaves_axi_mosi;
+  s_axi_miso_t  [11:0] slaves_axi_miso;
 
   //
   // AXI4 Crossbar
@@ -125,9 +143,12 @@ module test
     .ADDR_WIDTH       (32),
     .DATA_WIDTH       (32),
     .N_MASTERS        (4),
-    .N_SLAVES         (9),
+    .N_SLAVES         (12),
     .AXI_TID_WIDTH    (8),
-    .M_BASE_ADDR      ({32'h1a000,
+    .M_BASE_ADDR      ({32'h1e000,
+                        32'h1d000,
+                        32'h1c000,
+                        32'h1a000,
                         32'h18000,
                         32'h16000,
                         32'h14000,
@@ -136,7 +157,10 @@ module test
                         32'h8000,
                         32'h4000,
                         32'h0}),
-    .M_ADDR_WIDTH     ({32'd13,
+    .M_ADDR_WIDTH     ({32'd12,
+                        32'd12,
+                        32'd12,
+                        32'd13,
                         32'd13,
                         32'd13,
                         32'd13,
@@ -288,8 +312,13 @@ module test
   logic [31:0] irq_vector_mapping;
   assign irq_vector_mapping[0] = dma_error;
   assign irq_vector_mapping[1] = dma_done;
+  assign irq_vector_mapping[2] = 1'b0;
+  assign irq_vector_mapping[3] = 1'b0;
+  assign irq_vector_mapping[4] = eth_pkt_recv_irq;
+  assign irq_vector_mapping[5] = eth_pkt_sent_irq;
+  assign irq_vector_mapping[6] = eth_pkt_recv_full_irq;
   
-  assign irq_vector_mapping[31:2] = '0; // TIE-L not used IRQs
+  assign irq_vector_mapping[31:7] = '0; // TIE-L not used IRQs
   
 
   //
@@ -316,7 +345,7 @@ module test
     .RESET_PULSE_WIDTH (4)
   ) u_rst_ctrl  (
     .clk               (clk_50MHz),
-    .rst               (~arty_a7_rst_n),
+    .rst               (arty_a7_rst),
     .bootloader_i      (arty_a7_sw_1),
     .axi_mosi          (slaves_axi_mosi[7]),
     .axi_miso          (slaves_axi_miso[7]),
@@ -342,6 +371,53 @@ module test
     .rst              (rst_int_soc),
     .axi_mosi         (slaves_axi_mosi[8]),
     .axi_miso         (slaves_axi_miso[8])
+  );
+
+  s_axil_mosi_t axil_mosi_eth_eth;
+  s_axil_miso_t axil_miso_eth_eth;
+
+  axil_to_axi u_axil_to_axi_eth_eth (
+    .axi_mosi_i       (slaves_axi_mosi[9]),
+    .axi_miso_o       (slaves_axi_miso[9]),
+    .axil_mosi_o      (axil_mosi_eth_eth),
+    .axil_miso_i      (axil_miso_eth_eth)
+  );
+
+  // Ethernet: 1000BASE-T RGMII
+  assign phy_rx.phy_rx_clk = phy_rx_clk;
+  assign phy_rx.phy_rxd    = phy_rxd;
+  assign phy_rx.phy_rx_ctl = phy_rx_ctl;
+  assign phy_rx.phy_int_n  = phy_int_n;
+  assign phy_rx.phy_pme_n  = phy_pme_n;
+
+  assign phy_tx_clk   = phy_tx.phy_tx_clk;
+  assign phy_txd      = phy_tx.phy_txd;
+  assign phy_tx_ctl   = phy_tx.phy_tx_ctl;
+  assign phy_reset_n  = phy_tx.phy_reset_n;
+
+  //
+  // Ethernet CSR
+  //
+  ethernet_wrapper u_eth (
+    .clk_src            (clk_in_100MHz),
+    .clk_axi            (clk_50MHz), // Clk of the AXI bus
+    .rst_axi            (rst_int_soc), // Active-High
+    // Ethernet Control and Status Registers
+    .eth_csr_mosi_i     (axil_mosi_eth_eth),
+    .eth_csr_miso_o     (axil_miso_eth_eth),
+    // Ethernet inFIFO I/F
+    .eth_infifo_mosi_i  (slaves_axi_mosi[10]),
+    .eth_infifo_miso_o  (slaves_axi_miso[10]),
+    // Ethernet outFIFO I/F
+    .eth_outfifo_mosi_i (slaves_axi_mosi[11]),
+    .eth_outfifo_miso_o (slaves_axi_miso[11]),
+    // Ethernet: 1000BASE-T RGMII
+    .phy_tx             (phy_tx),
+    .phy_rx             (phy_rx),
+    // IRQs
+    .pkt_recv_o         (eth_pkt_recv_irq),
+    .pkt_sent_o         (eth_pkt_sent_irq),
+    .pkt_recv_full_o    (eth_pkt_recv_full_irq)
   );
 
 endmodule

@@ -35,3 +35,5 @@ riscv-arch-test/
 .txt
 *.jou
 *.fst.hier
+build/
+vivado*

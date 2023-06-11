@@ -23,11 +23,11 @@ _SRC_VERILOG 	+=	ips/axi_dma/rtl/inc/dma_utils_pkg.sv
 _SRC_VERILOG 	+=	$(shell find ips/ravenoc/src							 -maxdepth 1 -type f -iname *.sv)
 _SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/ni						 -maxdepth 1 -type f -iname *.sv ! -name 'async_gp_fifo.sv')
 _SRC_VERILOG 	+=	$(shell find ips/ravenoc/src/router				 -maxdepth 1 -type f -iname *.sv)
-# 3) Nox files                                                         
+# 3) Nox files
 _SRC_VERILOG 	+=	$(shell find ips/nox/rtl									 -maxdepth 1 -type f -iname *.sv)
-# 4) Verilog AXI modified                                              
+# 4) Verilog AXI modified
 _SRC_VERILOG 	+=	$(shell find ips/verilog-axi-aignacio/rtl	 -maxdepth 1 -type f -iname *.v)
-# 5) Different SoC components                                          
+# 5) Different SoC components
 _SRC_VERILOG 	+=	$(shell find ips/soc_components 					 -maxdepth 1 -type f -iname *.sv)
 # 6) AXI DMA
 _SRC_VERILOG 	+=	$(shell find ips/axi_dma/csr_out 					 -maxdepth 1 -type f -iname *.v)
@@ -159,3 +159,9 @@ all: clean sw/bootloader/output/boot_rom.sv $(VERILATOR_EXE)
 
 run: $(VERILATOR_EXE) sw/hello_world/output/hello_world.elf
 	$(RUN_CMD) ./$(VERILATOR_EXE) -s 200000 -e sw/hello_world/output/hello_world.elf
+
+fpga_nexys:
+	fusesoc run --target=nv_synth --run core:soc:v1.0.0
+
+add_lib:
+	fusesoc library add core:soc:v1.0.0 .

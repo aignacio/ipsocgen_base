@@ -89,22 +89,22 @@ void print_csrs(void){
 }
 
 void print_welcome(void){
-  /*printf("\n\r");*/
-  /*printf("\n\r  __    __            __    __         ______              ______   ");*/
-  /*printf("\n\r |  \\  |  \\          |  \\  |  \\       /      \\            /      \\  ");*/
-  /*printf("\n\r | $$\\ | $$  ______  | $$  | $$      |  $$$$$$\\  ______  |  $$$$$$\\ ");*/
-  /*printf("\n\r | $$$\\| $$ /      \\  \\$$\\/  $$      | $$___\\$$ /      \\ | $$   \\$$ ");*/
-  /*printf("\n\r | $$$$\\ $$|  $$$$$$\\  >$$  $$        \\$$    \\ |  $$$$$$\\| $$       ");*/
-  /*printf("\n\r | $$\\$$ $$| $$  | $$ /  $$$$\\        _\\$$$$$$\\| $$  | $$| $$   __  ");*/
-  /*printf("\n\r | $$ \\$$$$| $$__/ $$|  $$ \\$$\\      |  \\__| $$| $$__/ $$| $$__/  \\ ");*/
-  /*printf("\n\r | $$  \\$$$ \\$$    $$| $$  | $$       \\$$    $$ \\$$    $$ \\$$    $$ ");*/
-  /*printf("\n\r  \\$$   \\$$  \\$$$$$$  \\$$   \\$$        \\$$$$$$   \\$$$$$$   \\$$$$$$  ");*/
-  /*printf("\n\r");*/
-  /*printf("\n\r NoX SoC UART Bootloader \n");*/
+  printf("\n\r");
+  printf("\n\r  __    __            __    __         ______              ______   ");
+  printf("\n\r |  \\  |  \\          |  \\  |  \\       /      \\            /      \\  ");
+  printf("\n\r | $$\\ | $$  ______  | $$  | $$      |  $$$$$$\\  ______  |  $$$$$$\\ ");
+  printf("\n\r | $$$\\| $$ /      \\  \\$$\\/  $$      | $$___\\$$ /      \\ | $$   \\$$ ");
+  printf("\n\r | $$$$\\ $$|  $$$$$$\\  >$$  $$        \\$$    \\ |  $$$$$$\\| $$       ");
+  printf("\n\r | $$\\$$ $$| $$  | $$ /  $$$$\\        _\\$$$$$$\\| $$  | $$| $$   __  ");
+  printf("\n\r | $$ \\$$$$| $$__/ $$|  $$ \\$$\\      |  \\__| $$| $$__/ $$| $$__/  \\ ");
+  printf("\n\r | $$  \\$$$ \\$$    $$| $$  | $$       \\$$    $$ \\$$    $$ \\$$    $$ ");
+  printf("\n\r  \\$$   \\$$  \\$$$$$$  \\$$   \\$$        \\$$$$$$   \\$$$$$$   \\$$$$$$  ");
+  printf("\n\r");
+  printf("\n\r NoX SoC UART Bootloader \n");
   /*print_csrs();*/
-  /*printf("\n\r Freq. system:\t%d Hz",FREQ_SYSTEM);*/
-  /*printf("\n\r UART Speed:\t%d bits/s",BR_UART);*/
-  /*printf("\n\r Type h+[ENTER] for help!\n\r");*/
+  printf("\n\r Freq. system:\t%d Hz",FREQ_SYSTEM);
+  printf("\n\r UART Speed:\t%d bits/s",BR_UART);
+  printf("\n\r Type h+[ENTER] for help!\n\r");
   printf("\n\r> ");
 }
 
