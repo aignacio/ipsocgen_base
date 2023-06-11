@@ -42,5 +42,6 @@ set_input_delay 0 [get_ports {phy_int_n phy_pme_n}]
 set_property IDELAY_VALUE 0 [get_cells {u_eth/phy_rx_ctl_idelay u_eth/phy_rxd_idelay_*}]
 
 set_clock_groups -asynchronous -group [get_clocks -include_generated_clocks sys_clk_pin]
-create_clock -period 8.00 [get_pins {u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]
+#create_clock -period 8.00 [get_pins {u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]
+create_generated_clock -name clk_mmcm_out_125MHz -source [get_pins u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKIN1] -edges {1 2 3} -edge_shift {0.000 -1.000 -2.000} -add -master_clock [get_clocks sys_clk_pin] [get_pins u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0]
 set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins u_clk_pll/CLKOUT0]] -group [get_clocks -of_objects [get_pins {u_eth/u_clk_mgmt_eth/clk_mmcm_inst/CLKOUT0}]]

@@ -9,8 +9,8 @@ soc_desc:
   addr_width:   32    # 32, 64
   data_width:   32    # 32, 64
   txn_id_width: 8     # 8
-  num_masters:  4     # >= 2
-  num_slaves:   12    # >= 1
+  num_masters:  3     # >= 2
+  num_slaves:   11    # >= 1
   proc_required: y
   mmap_type:    auto  # auto, manual
   clk: &clk_int
@@ -61,10 +61,6 @@ soc_desc:
       desc: DMA Engine
       type: acc_dma
       if:   dma_master
-    3:
-      name: custom_master
-      desc: Custom Master ACC.
-      type: acc_custom_master
   slaves:
     0:
       name: iram
@@ -117,32 +113,27 @@ soc_desc:
       name: rst_ctrl
       type: acc_rst
       desc: Reset Controller
-      rst_def_addr:    0 # Slave ID
+      rst_def_addr:    2 # Slave ID
       rst_pulse_width: 4 # >= 2
       rst_addr_out:    rst_addr
       io_bootloader:   arty_a7_sw_1
       bootloader_type: act_h
       <<: *rst_int # Copy for the io_in_rst
     8:
-      name: acc_custom
-      type: acc_custom_slave
-      desc: My custom acc
-      mem_size_kib: 8
-    9:
       name: eth
       desc: Ethernet CSR
       type: acc_eth
       eth_type: csr
-      clk_ext: clk_in_100MHz
+      clk_ext: arty_a7_100MHz
       pkt_recv_irq: eth_pkt_recv_irq
       pkt_sent_irq: eth_pkt_sent_irq
       pkt_recv_full_irq: eth_pkt_recv_full_irq
-    10:
+    9:
       name: eth_infifo
       desc: Ethernet InFIFO IF
       type: acc_eth
       eth_type: infifo
-    11:
+    10:
       name: eth_outfifo
       desc: Ethernet OutFIFO IF
       type: acc_eth

@@ -2,7 +2,7 @@
  * File              : test.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 11/06/2023 14:08:45
+ * Date              : 11/06/2023 13:24:14
  * Description       : Description of the MP/SoC to be generated
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -114,6 +114,7 @@ module test
 // 0          NoX CPU - Instr. IF
 // 1          NoX CPU - LSU IF
 // 2          DMA Engine
+// 3          Custom Master ACC.
 
 // Slave ID  Base Addr  End Addr  Size (KiB)  Description
 // 0         0x0        0x3fff    16          Instruction RAM
@@ -124,14 +125,15 @@ module test
 // 5         0x14000    0x15fff   8           DMA Engine CSRs
 // 6         0x16000    0x17fff   8           IRQ Controller
 // 7         0x18000    0x19fff   8           Reset Controller
-// 8         0x1a000    0x1afff   4           Ethernet CSR
-// 9         0x1b000    0x1bfff   4           Ethernet InFIFO IF
-// 10        0x1c000    0x1cfff   4           Ethernet OutFIFO IF
+// 8         0x1a000    0x1bfff   8           My custom acc
+// 9         0x1c000    0x1cfff   4           Ethernet CSR
+// 10        0x1d000    0x1dfff   4           Ethernet InFIFO IF
+// 11        0x1e000    0x1efff   4           Ethernet OutFIFO IF
 
-  s_axi_mosi_t  [2:0] masters_axi_mosi;
-  s_axi_miso_t  [2:0] masters_axi_miso;
-  s_axi_mosi_t  [10:0] slaves_axi_mosi;
-  s_axi_miso_t  [10:0] slaves_axi_miso;
+  s_axi_mosi_t  [3:0] masters_axi_mosi;
+  s_axi_miso_t  [3:0] masters_axi_miso;
+  s_axi_mosi_t  [11:0] slaves_axi_mosi;
+  s_axi_miso_t  [11:0] slaves_axi_miso;
 
   //
   // AXI4 Crossbar
@@ -139,11 +141,12 @@ module test
   axi_crossbar_wrapper #(
     .ADDR_WIDTH       (32),
     .DATA_WIDTH       (32),
-    .N_MASTERS        (3),
-    .N_SLAVES         (11),
+    .N_MASTERS        (4),
+    .N_SLAVES         (12),
     .AXI_TID_WIDTH    (8),
-    .M_BASE_ADDR      ({32'h1c000,
-                        32'h1b000,
+    .M_BASE_ADDR      ({32'h1e000,
+                        32'h1d000,
+                        32'h1c000,
                         32'h1a000,
                         32'h18000,
                         32'h16000,
@@ -156,6 +159,7 @@ module test
     .M_ADDR_WIDTH     ({32'd12,
                         32'd12,
                         32'd12,
+                        32'd13,
                         32'd13,
                         32'd13,
                         32'd13,
@@ -183,6 +187,16 @@ module test
     .instr_axi_miso_i (masters_axi_miso[0]),
     .lsu_axi_mosi_o   (masters_axi_mosi[1]),
     .lsu_axi_miso_i   (masters_axi_miso[1])
+  );
+
+  //
+  // Custom Master ACC.
+  //
+  axi_custom_master_acc u_custom_master (
+    .clk              (clk_50MHz),
+    .rst              (rst_int_soc),
+    .axi_mosi         (masters_axi_mosi[3]),
+    .axi_miso         (masters_axi_miso[3])
   );
 
   //
@@ -325,7 +339,7 @@ module test
   // Reset Controller
   //
   axi_rst_ctrl #(
-    .RESET_VECTOR_ADDR ('h8000),
+    .RESET_VECTOR_ADDR ('h0),
     .BASE_ADDR         ('h18000),
     .RESET_PULSE_WIDTH (4)
   ) u_rst_ctrl  (
@@ -346,12 +360,24 @@ module test
   endfunction
   // synthesis translate_on
 
+  //
+  // My custom acc
+  //
+  axi_custom_slave_acc #(
+    .BASE_ADDR        ('h1a000)
+  ) u_acc_custom (
+    .clk              (clk_50MHz),
+    .rst              (rst_int_soc),
+    .axi_mosi         (slaves_axi_mosi[8]),
+    .axi_miso         (slaves_axi_miso[8])
+  );
+
   s_axil_mosi_t axil_mosi_eth_eth;
   s_axil_miso_t axil_miso_eth_eth;
 
   axil_to_axi u_axil_to_axi_eth_eth (
-    .axi_mosi_i       (slaves_axi_mosi[8]),
-    .axi_miso_o       (slaves_axi_miso[8]),
+    .axi_mosi_i       (slaves_axi_mosi[9]),
+    .axi_miso_o       (slaves_axi_miso[9]),
     .axil_mosi_o      (axil_mosi_eth_eth),
     .axil_miso_i      (axil_miso_eth_eth)
   );
@@ -379,11 +405,11 @@ module test
     .eth_csr_mosi_i     (axil_mosi_eth_eth),
     .eth_csr_miso_o     (axil_miso_eth_eth),
     // Ethernet inFIFO I/F
-    .eth_infifo_mosi_i  (slaves_axi_mosi[9]),
-    .eth_infifo_miso_o  (slaves_axi_miso[9]),
+    .eth_infifo_mosi_i  (slaves_axi_mosi[10]),
+    .eth_infifo_miso_o  (slaves_axi_miso[10]),
     // Ethernet outFIFO I/F
-    .eth_outfifo_mosi_i (slaves_axi_mosi[10]),
-    .eth_outfifo_miso_o (slaves_axi_miso[10]),
+    .eth_outfifo_mosi_i (slaves_axi_mosi[11]),
+    .eth_outfifo_miso_o (slaves_axi_miso[11]),
     // Ethernet: 1000BASE-T RGMII
     .phy_tx             (phy_tx),
     .phy_rx             (phy_rx),
