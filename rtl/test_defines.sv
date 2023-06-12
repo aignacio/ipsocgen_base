@@ -2,7 +2,7 @@
  * File              : test_defines.sv
  * License           : MIT license <Check LICENSE>
  * Author            : IPSoCGen
- * Date              : 11/06/2023 15:14:51
+ * Date              : 12/06/2023 14:03:40
  * Description       : Verilog defines configuration file
  * -------------------------------------------
  * -- Design AUTO-GENERATED using IPSoC Gen --
@@ -23,4 +23,7 @@
 `define DMA_MAX_BEAT_BURST 4
 `define DMA_MAX_BURST_EN 1
 `define DMA_EN_UNALIGNED 0
+`define ETH_INFIFO_KB_SIZE 2
+`define ETH_OUTFIFO_KB_SIZE 2
+`define ETH_OT_FIFO 4
 /* verilator lint_on REDEFMACRO */

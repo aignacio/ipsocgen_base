@@ -9,7 +9,7 @@ typedef enum {
   MASTER_STATUS_RUNNING   = 1,
   MASTER_STATUS_COMPLETE  = 2,
   MASTER_STATUS_ERROR     = 3
-} HostType_t;
+} MasterType_t;
 
 typedef enum {
   CMD_NONE       = 0,

@@ -22,7 +22,7 @@
 // [Hardware settings]
 #define masterHW_CLK_SPEED_HZ         50000000
 #define masterUART_BAUD_RATE          115200
-#define masterETH_PKT_SIZE_BYTES      1024
+#define masterETH_PKT_SIZE_BYTES      (1*1024)
 
 // [Macro functions]
 #define masterCHECK_TASK(X)           if(X == pdFALSE) {                            \
