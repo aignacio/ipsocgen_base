@@ -117,6 +117,7 @@ class App(QWidget):
         histogram_check = histogram_check/histogram_check.max()
 
         data = IrisMPSoCPkt(0,IrisMPSoCEnc.CMD_HISTOGRAM, (IMG_WIDTH-1,IMG_HEIGHT-1)).get_header()
+        print(data)
         self.sock.sendto(data, (UDP_IP, UDP_PORT))
         rx_eth = self.sock.recvfrom(4)
         message = rx_eth[0]
