@@ -286,12 +286,12 @@ void plotHistogram() {
       int height = cvRound(binVal * histHeight / maxVal);
 
       // Draw a black line for each histogram bin
-      cv::line(histImage, cv::Point(i, histHeight), cv::Point(i, histHeight - height), cv::Scalar(0, 0, 0), 1);
+      cv::line(histImage, cv::Point(i*2, histHeight), cv::Point(i*2, histHeight - height), cv::Scalar(0, 0, 0), 1);
     }
 
     for (int i=0; i<(int)normhistogramHW.size(); i++) {
       // Draw a black line for each histogram bin
-      cv::line(histImage, cv::Point(i+256, histHeight), cv::Point(i+256, histHeight - normhistogramHW[i]), cv::Scalar(0, 0, 255), 1);
+      cv::line(histImage, cv::Point((i*2)-1, histHeight), cv::Point((i*2)-1, histHeight - normhistogramHW[i]), cv::Scalar(0, 0, 255), 1);
     }
 
     // Add axis titles
