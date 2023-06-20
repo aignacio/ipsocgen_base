@@ -273,6 +273,7 @@ void plotHistogram() {
   struct sockaddr_in clientAddress;
   unsigned long frame = 0;
 
+  cout << "Frame Count, Hist. Correlation, Time per frame FPGA, Time per frame OpenCV " << endl;
   while (!stop) {
     Mat image = ThreadSafeQueue.pop();
     cvtColor(image, image, COLOR_BGR2GRAY);
