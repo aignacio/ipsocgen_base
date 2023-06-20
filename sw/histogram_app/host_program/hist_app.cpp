@@ -13,6 +13,7 @@
 #include <iostream>
 #include <mutex>
 #include <queue>
+#include <chrono>
 
 #include <cstring>
 #include <arpa/inet.h>
@@ -29,6 +30,22 @@ bool stop = false;
 
 using namespace std;
 using namespace cv;
+
+// Function to measure the elapsed time
+double measureElapsedTime(bool reset = false)
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto elapsedTime = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+
+    if (reset)
+    {
+        startTime = std::chrono::high_resolution_clock::now();
+    }
+
+    return elapsedTime;
+}
 
 template <typename T>
 class TSQueue {
@@ -230,10 +247,31 @@ void printVectorDigits(const std::vector<unsigned int>& inputVector) {
   }
 }
 
+double computeHistogramCorrelation(const std::vector<unsigned int>& hist1, const std::vector<unsigned int>& hist2) {
+    if (hist1.size() != hist2.size()) {
+        std::cerr << "Error: Histogram sizes do not match." << std::endl;
+        return 0.0;
+    }
+
+    cv::Mat hist1f(hist1.size(), 1, CV_32F);
+    cv::Mat hist2f(hist2.size(), 1, CV_32F);
+
+    for (size_t i = 0; i < hist1.size(); ++i) {
+        hist1f.at<float>(i, 0) = static_cast<float>(hist1[i]);
+        hist2f.at<float>(i, 0) = static_cast<float>(hist2[i]);
+    }
+
+    double correlation = cv::compareHist(hist1f, hist2f, cv::HISTCMP_CORREL);
+    double correlationPercentage = (correlation + 1.0) * 50.0; // Scale correlation to [0, 100]
+
+    return correlationPercentage;
+}
+
 void plotHistogram() {
   const char* ackFPGA = "\xaa\xbb\xcc\xdd";  // Hexadecimal value to compare against
   uint32_t histReqHW = htonl(0x1f0dd9f);
   struct sockaddr_in clientAddress;
+  unsigned long frame = 0;
 
   while (!stop) {
     Mat image = ThreadSafeQueue.pop();
@@ -241,6 +279,7 @@ void plotHistogram() {
 
     char buffer[4];
     // Send the Histogram cmd to the FPGA
+    measureElapsedTime();
     sendto(sockfd, &histReqHW, sizeof(histReqHW), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
     socklen_t clientAddressLength = sizeof(clientAddress);
     int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
@@ -251,6 +290,11 @@ void plotHistogram() {
 
     vector<vector<unsigned char>> udpPkts = splitImageIntoPackets(image);
     vector<unsigned int> histogramHW = sendPackets(udpPkts);
+
+    double elapsedFPGAProc = measureElapsedTime();
+    measureElapsedTime(true);
+
+    measureElapsedTime();
     vector<unsigned int> normhistogramHW = normalizeVector(histogramHW, 0, 480);
 
     //cout << histogramHW.size() << endl;
@@ -272,34 +316,56 @@ void plotHistogram() {
     cv::normalize(hist, hist, 0, 480, cv::NORM_MINMAX, -1, cv::Mat());
 
     // Create a blank white image to draw the histogram
-    int histWidth = 512;
-    int histHeight = 480;
+    int width = 3;
+    int start_left = 100;
+    int histWidth = ((256*width)*2)+start_left+60;
+    int histHeight = 512+start_left;
+    int start_bottom = histHeight-start_left;
     cv::Mat histImage(histHeight, histWidth, CV_8UC3, cv::Scalar(255, 255, 255));
 
     // Find the maximum histogram value
     double maxVal = 0;
     cv::minMaxLoc(hist, nullptr, &maxVal);
+    vector<unsigned int> histOpenCV;
 
+    double elapsedOpenCVProc = measureElapsedTime();
     // Scale the histogram values to fit the image height
     for (int i=0; i<histSize; i++) {
       float binVal = hist.at<float>(i);
-      int height = cvRound(binVal * histHeight / maxVal);
-
+      unsigned int bin_val = cvRound(binVal);
+      //int height = cvRound(binVal * histHeight / maxVal);
       // Draw a black line for each histogram bin
-      cv::line(histImage, cv::Point(i*2, histHeight), cv::Point(i*2, histHeight - height), cv::Scalar(0, 0, 0), 1);
+      cv::line(histImage, cv::Point(start_left+(i*(width*2)), start_bottom), cv::Point(start_left+(i*(width*2)), start_bottom - bin_val), cv::Scalar(0, 0, 0), 2);
+
+      histOpenCV.push_back(bin_val);
     }
 
-    for (int i=0; i<(int)normhistogramHW.size(); i++) {
+    for (int i=1; i<(int)normhistogramHW.size(); i++) {
       // Draw a black line for each histogram bin
-      cv::line(histImage, cv::Point((i*2)-1, histHeight), cv::Point((i*2)-1, histHeight - normhistogramHW[i]), cv::Scalar(0, 0, 255), 1);
+      cv::line(histImage, cv::Point(start_left+((i*(width*2))+width), start_bottom), cv::Point(start_left+((i*(width*2))+width), start_bottom - normhistogramHW[i]), cv::Scalar(0, 0, 255), 2);
     }
 
     // Add axis titles
-    cv::putText(histImage, "Frequency - Ref", cv::Point(10, histHeight / 2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
-    cv::putText(histImage, "Frequency - FPGA", cv::Point(10+256, histHeight / 2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+    cv::line(histImage, cv::Point(start_left-2, start_bottom+2), cv::Point(start_left-2, 10), cv::Scalar(0, 0, 0), 2);
+    cv::line(histImage, cv::Point(start_left-2, start_bottom+2), cv::Point(histWidth-10, start_bottom+2), cv::Scalar(0, 0, 0), 2);
+    cv::putText(histImage, "Frequency", cv::Point(10, histHeight / 2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    cv::putText(histImage, "Bins", cv::Point(histWidth/2, start_bottom+40), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+
+    cv::putText(histImage, "0", cv::Point(start_left-10, start_bottom+20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    cv::putText(histImage, "480", cv::Point(start_left-40, start_bottom-480), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    cv::putText(histImage, "255", cv::Point(start_left+(256*(3*2))+3-20, start_bottom+20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+
+    cv::putText(histImage, "Frequency - OpenCV", cv::Point(histWidth/2, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    cv::putText(histImage, "Frequency - FPGA", cv::Point(histWidth/2, 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
     // Display the histogram plot
-    cv::imshow("Histogram", histImage);
+    cv::imshow("Histogram - Nexys Video (FPGA)", histImage);
+
+    for (int i=1; i<(int)normhistogramHW.size(); i++) {
+      // Draw a black line for each histogram bin
+      ;
+    }
+    cout << frame++ << "," << computeHistogramCorrelation(normhistogramHW, histOpenCV) << "," << elapsedFPGAProc << "," << elapsedOpenCVProc << endl;
   }
   destroyAllWindows();
 }
