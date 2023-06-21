@@ -353,7 +353,7 @@ void plotHistogram() {
     cv::putText(histImage, "Bins", cv::Point(histWidth/2, start_bottom+40), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
 
     cv::putText(histImage, "0", cv::Point(start_left-10, start_bottom+20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
-    cv::putText(histImage, "480", cv::Point(start_left-40, start_bottom-480), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    cv::putText(histImage, "479", cv::Point(start_left-40, start_bottom-480), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
     cv::putText(histImage, "255", cv::Point(start_left+(256*(3*2))+3-20, start_bottom+20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
 
     cv::putText(histImage, "Frequency - OpenCV", cv::Point(histWidth/2, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
@@ -362,10 +362,6 @@ void plotHistogram() {
     // Display the histogram plot
     cv::imshow("Histogram - Nexys Video (FPGA)", histImage);
 
-    for (int i=1; i<(int)normhistogramHW.size(); i++) {
-      // Draw a black line for each histogram bin
-      ;
-    }
     cout << frame++ << "," << computeHistogramCorrelation(normhistogramHW, histOpenCV) << "," << elapsedFPGAProc << "," << elapsedOpenCVProc << endl;
   }
   destroyAllWindows();
