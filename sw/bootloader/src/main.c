@@ -21,7 +21,8 @@ volatile uint32_t* const uart_print = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR+0xC)
 volatile uint32_t* const uart_rx    = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR+0x8);
 volatile uint32_t* const uart_cfg   = (uint32_t*) (UART_SERIAL_IP_BASE_ADDR);
 volatile uint32_t* const rst_cfg    = (uint32_t*) (RESET_CONTROLLER_BASE_ADDR);
-
+volatile uint32_t* const noc_csr_x  = (uint32_t*) (RAVENOC_SLAVE_IF_BASE_ADDR+0x3000+0x4);
+volatile uint32_t* const noc_csr_y  = (uint32_t*) (RAVENOC_SLAVE_IF_BASE_ADDR+0x3000+0x8);
 uint8_t   gIdx_rx = 0;
 uint8_t   gRx_chars[40];
 bool      gFast_mode = false;
@@ -89,22 +90,23 @@ void print_csrs(void){
 }
 
 void print_welcome(void){
-  /*printf("\n\r");*/
-  /*printf("\n\r  __    __            __    __         ______              ______   ");*/
-  /*printf("\n\r |  \\  |  \\          |  \\  |  \\       /      \\            /      \\  ");*/
-  /*printf("\n\r | $$\\ | $$  ______  | $$  | $$      |  $$$$$$\\  ______  |  $$$$$$\\ ");*/
-  /*printf("\n\r | $$$\\| $$ /      \\  \\$$\\/  $$      | $$___\\$$ /      \\ | $$   \\$$ ");*/
-  /*printf("\n\r | $$$$\\ $$|  $$$$$$\\  >$$  $$        \\$$    \\ |  $$$$$$\\| $$       ");*/
-  /*printf("\n\r | $$\\$$ $$| $$  | $$ /  $$$$\\        _\\$$$$$$\\| $$  | $$| $$   __  ");*/
-  /*printf("\n\r | $$ \\$$$$| $$__/ $$|  $$ \\$$\\      |  \\__| $$| $$__/ $$| $$__/  \\ ");*/
-  /*printf("\n\r | $$  \\$$$ \\$$    $$| $$  | $$       \\$$    $$ \\$$    $$ \\$$    $$ ");*/
-  /*printf("\n\r  \\$$   \\$$  \\$$$$$$  \\$$   \\$$        \\$$$$$$   \\$$$$$$   \\$$$$$$  ");*/
-  /*printf("\n\r");*/
-  /*printf("\n\r NoX SoC UART Bootloader \n");*/
+  printf("\n\r");
+  printf("\n\r  __    __            __    __         ______              ______   ");
+  printf("\n\r |  \\  |  \\          |  \\  |  \\       /      \\            /      \\  ");
+  printf("\n\r | $$\\ | $$  ______  | $$  | $$      |  $$$$$$\\  ______  |  $$$$$$\\ ");
+  printf("\n\r | $$$\\| $$ /      \\  \\$$\\/  $$      | $$___\\$$ /      \\ | $$   \\$$ ");
+  printf("\n\r | $$$$\\ $$|  $$$$$$\\  >$$  $$        \\$$    \\ |  $$$$$$\\| $$       ");
+  printf("\n\r | $$\\$$ $$| $$  | $$ /  $$$$\\        _\\$$$$$$\\| $$  | $$| $$   __  ");
+  printf("\n\r | $$ \\$$$$| $$__/ $$|  $$ \\$$\\      |  \\__| $$| $$__/ $$| $$__/  \\ ");
+  printf("\n\r | $$  \\$$$ \\$$    $$| $$  | $$       \\$$    $$ \\$$    $$ \\$$    $$ ");
+  printf("\n\r  \\$$   \\$$  \\$$$$$$  \\$$   \\$$        \\$$$$$$   \\$$$$$$   \\$$$$$$  ");
+  printf("\n\r");
+  printf("\n\r NoX SoC UART Bootloader \n");
+  printf("\n\r Tile = [%d,%d]\n\r",*noc_csr_x,*noc_csr_y);
   /*print_csrs();*/
-  /*printf("\n\r Freq. system:\t%d Hz",FREQ_SYSTEM);*/
-  /*printf("\n\r UART Speed:\t%d bits/s",BR_UART);*/
-  /*printf("\n\r Type h+[ENTER] for help!\n\r");*/
+  printf("\n\r Freq. system:\t%d Hz",FREQ_SYSTEM);
+  printf("\n\r UART Speed:\t%d bits/s",BR_UART);
+  printf("\n\r Type h+[ENTER] for help!\n\r");
   printf("\n\r> ");
 }
 

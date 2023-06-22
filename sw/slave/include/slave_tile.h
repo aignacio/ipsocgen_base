@@ -43,4 +43,13 @@ inline void __attribute__ ((always_inline)) vCpuSleep(void) {
   asm volatile ("wfi");
 }
 
+#define slaveTIMEOUT_INFO(X,MSG)     if (X == pdFALSE){ \
+                                        dbg("\n\r[TIMEOUT] - %s:\n\r File: %s \
+                                            \n\r Function: %s \n\r Line:%d", MSG, __FILE__, __FUNCTION__, __LINE__);\
+                                        reset_soc();}
+
+inline void __attribute__ ((always_inline)) reset_soc(void) {
+  static volatile uint32_t* const reset_act = (uint32_t*) (masterRESET_CTRL_BASE_ADDR+0x20);
+  *reset_act = 1;
+}
 #endif

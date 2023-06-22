@@ -183,6 +183,8 @@ static void vprvCopyImg (void *pvParameters) {
   CmdType_t cmd;
   uint32_t  ulBuffer32;
   TickType_t start = xTaskGetTickCount(), stop;
+  TickType_t start_recv = xTaskGetTickCount(), stop_recv;
+  TickType_t start_proc_slave = xTaskGetTickCount(), stop_proc_slave;
 
   // Prepare the DMA descriptor 0 to send the pkt
   DMADesc_t xDMACopyDesc = {
@@ -211,7 +213,8 @@ static void vprvCopyImg (void *pvParameters) {
   vDMASetDescCfg(0, xDMACopyDesc);
 
   for (;;) {
-    masterTIMEOUT_INFO(xQueueReceive(xStartFetchImgQ, &cmd, pdMS_TO_TICKS(10000)), "Receive cmd");
+    //masterTIMEOUT_INFO(xQueueReceive(xStartFetchImgQ, &cmd, pdMS_TO_TICKS(10000)), "Receive cmd");
+    xQueueReceive(xStartFetchImgQ, &cmd, portMAX_DELAY);
     switch (cmd) {
       case CMD_NONE:
         dbg("\n\r[CMD] None");
@@ -237,7 +240,9 @@ static void vprvCopyImg (void *pvParameters) {
           /*dbg("\n\r%d", ulNumPixels);*/
 
           // Wait to receive image segment of 1KiB
+          start_recv = xTaskGetTickCount();
           masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "Receive frame");
+
           // --> Ethernet has 1KiB image available
           // Lets compute the histogram of the first 4x pixels (bytes) because
           // the maximum NoC packet is 1KiB and we have to subtract 4b for the pkt header
@@ -246,6 +251,7 @@ static void vprvCopyImg (void *pvParameters) {
           // Get the next available slave tile, program the DMA
           // and send the data over the NoC
           vprvSendSegSlave(ucprvGetFreeSlaveTile());
+          stop_recv = xTaskGetTickCount();
           /*vprvProcLocal();*/
 
           ulNumPixels -= ulBuffer32;
@@ -265,7 +271,7 @@ static void vprvCopyImg (void *pvParameters) {
         vprvSendHistEth();
 
         stop = xTaskGetTickCount();
-        dbg("\n\r%d ms",((stop-start) << 1));
+        dbg("Frame %d ms \n\r",((stop-start) << 1));
         break;
       default:
         break;
