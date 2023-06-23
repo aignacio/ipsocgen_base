@@ -20,7 +20,16 @@
 TaskHandle_t xHandleRecvData;
 static QueueHandle_t xCmdQ;
 static QueueHandle_t xEthSentQ;
+static QueueHandle_t xRecvArrayQ;
+static QueueHandle_t xDMADoneQ;
+
+static SemaphoreHandle_t xDMAMutex;
 MasterType_t xMasterCurStatus = MASTER_STATUS_IDLE;
+
+uint16_t gSizeKiB = 0;
+uint16_t gVectorFactor = 0; // Factor to multiply
+uint16_t gVectorTimes = 0; // Factor times
+uint32_t gArray [256*5];
 
 void vSetEth (void);
 void vSendAckEth (void);
@@ -40,6 +49,8 @@ static void vprvRecvCmd (void *pvParameters) {
         break;
       case CMD_MULT_FACTOR:
         dbg("\n\r[CMD] CMD_MULT_FACTOR: arg1: %d / arg2: %d", cmd.st.arg1, cmd.st.arg2);
+        gVectorFactor = cmd.st.arg1; 
+        gVectorTimes = cmd.st.arg2; 
         break;
       case CMD_GET_RESULT:
         dbg("\n\r[CMD] CMD_GET_RESULT");
@@ -49,6 +60,45 @@ static void vprvRecvCmd (void *pvParameters) {
         break;
     }
     vSendAckEth();
+  }
+}
+
+static void vprvProcVec (void *pvParameters) {
+  uint8_t ucBuff = 0x00;
+
+  /*DMADesc_t xDMACopyDesc = {*/
+    /*.SrcAddr  = (uint32_t*)ethINFIFO_ADDR,*/
+    /*.DstAddr  = (uint32_t*)ravenocWR_BUFFER,*/
+    /*.NumBytes = (masterETH_PKT_SIZE_BYTES-4),*/
+    /*.Cfg = {*/
+      /*.WrMode = DMA_MODE_FIXED,*/
+      /*.RdMode = DMA_MODE_FIXED,*/
+      /*.Enable = DMA_MODE_ENABLE*/
+    /*}*/
+  /*};*/
+
+  /*vDMASetDescCfg(0, xDMACopyDesc);*/
+  
+  for (;;) {
+    xQueueReceive(xRecvArrayQ, &ucBuff, portMAX_DELAY);
+    /*if (gSizeKiB == 0){*/
+      /*dbg("\n\r! Error - Received more than it should !");*/
+      /*reset_soc();*/
+    /*} else {*/
+      /*gSizeKiB -= 1;*/
+    /*}*/
+    /*// All packets are 1KiB*/
+    /*vRaveNoCSendNoCMsg(gSizeKiB, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM);*/
+    /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
+    /*// Launch the DMA for descriptor 0 only*/
+    /*vDMASetDescGo(0);*/
+    /*//Wait DMA completion*/
+    /*masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuff, pdMS_TO_TICKS(500)), "Timeout DMA");*/
+    /*// Release the mutex*/
+    /*xSemaphoreGive(xDMAMutex);*/
+    /*// Clean the ptr to zero the INFIFO*/
+    /*vEthClearInfifoPtr();*/
+    /*vSendAckEth();*/
   }
 }
 
@@ -80,11 +130,17 @@ int main (void) {
   // DMA
   vDMAInit();
   
+  xDMAMutex = xSemaphoreCreateMutex();
+  if (xDMAMutex == NULL) {
+    masterCRASH_DBG_INFO("Cannot create the mutexes");
+  }
   // ------------------------------------
   // Queues
   // ------------------------------------
-  xCmdQ = xQueueCreate(2, sizeof(Cmd_t));
+  xCmdQ = xQueueCreate(1, sizeof(Cmd_t));
   xEthSentQ = xQueueCreate(1, sizeof(uint8_t));
+  xRecvArrayQ = xQueueCreate(1, sizeof(uint8_t));
+  xDMADoneQ = xQueueCreate(1, sizeof(uint32_t));
 
   xReturned = xTaskCreate(
     vprvRecvCmd,
@@ -95,7 +151,17 @@ int main (void) {
     &xHandleRecvData);
   masterCHECK_TASK(xReturned);
 
+  xReturned = xTaskCreate(
+    vprvProcVec,
+    "Process the vector",
+    configMINIMAL_STACK_SIZE*2U,
+    NULL,
+    tskIDLE_PRIORITY+1,
+    &xHandleRecvData);
+  masterCHECK_TASK(xReturned);
+
   vTaskStartScheduler();
+
   // Should never reach here...
   for(;;);
 }
@@ -109,6 +175,14 @@ void vSystemIrqHandler(uint32_t ulMcause){
     case(IRQ_RAVENOC_PKT):
       break;
     case(IRQ_DMA_0_DONE):
+      // Clear the done IRQ
+      vDMAClearGo();
+      xQueueSendFromISR(xDMADoneQ, &ucBuffer8, &xHigherPriorityTaskWoken);
+      if(xHigherPriorityTaskWoken == pdTRUE){
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+      }
+      break;
+
       break;
     case(IRQ_ETH_RECV):
       if (xMasterCurStatus == MASTER_STATUS_IDLE) {

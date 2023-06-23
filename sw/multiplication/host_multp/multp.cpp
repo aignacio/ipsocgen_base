@@ -70,7 +70,7 @@ void streamCmd (void) {
   while(true) {
     Cmd_t test;
 
-    test.st.pkt_type = CMD_RECV_ARRAY;
+    test.st.pkt_type = CMD_MULT_FACTOR;
     test.st.arg1 = 22;
     test.st.arg2 = 13;
     sendUDP(test.word);
