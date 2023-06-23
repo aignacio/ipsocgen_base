@@ -22,10 +22,9 @@
 [submodule "ips/ethernet_axi"]
 	path = ips/ethernet_axi
 	url = git@github.com:aignacio/ethernet_axi.git
-
-[submodule "sw/sw/slave/libs/FreeRTOS-Kernel"]
-	path = sw/slave/libs/FreeRTOS-Kernel
+[submodule "sw/histogram/slave/libs/FreeRTOS-Kernel"]
+	path = sw/histogram/slave/libs/FreeRTOS-Kernel
 	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git
-[submodule "sw/sw/master/libs/FreeRTOS-Kernel"]
-	path = sw/master/libs/FreeRTOS-Kernel
+[submodule "sw/histogram/master/libs/FreeRTOS-Kernel"]
+	path = sw/histogram/master/libs/FreeRTOS-Kernel
 	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git

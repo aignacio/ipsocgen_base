@@ -49,7 +49,7 @@ inline void __attribute__ ((always_inline)) vCpuSleep(void) {
                                         reset_soc();}
 
 inline void __attribute__ ((always_inline)) reset_soc(void) {
-  static volatile uint32_t* const reset_act = (uint32_t*) (masterRESET_CTRL_BASE_ADDR+0x20);
+  static volatile uint32_t* const reset_act = (uint32_t*) (slaveRESET_CTRL_BASE_ADDR+0x20);
   *reset_act = 1;
 }
 #endif
