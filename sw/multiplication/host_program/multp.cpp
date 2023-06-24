@@ -23,7 +23,8 @@
 #define FPGA_PORT       1234
 #define PACKET_SIZE     1024
 #define LOOP_SAMPLES    10
-#define TIMES           5
+#define TIMES           13
+#define BASE            2
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
@@ -64,7 +65,7 @@ void streamCmd (void) {
 
   for (size_t i=0; i<TIMES; i++) {
     for (size_t sample=0; sample<LOOP_SAMPLES; sample++) {
-      op.st.times = pow(10,i);
+      op.st.times = pow(BASE,i);
       op.st.factor = 1;
       auto startTime = chrono::high_resolution_clock::now();
       sendUDP(op);
@@ -84,7 +85,7 @@ void streamCmd (void) {
       average += elapsed_time_vec[i][j];
     }
     average /= LOOP_SAMPLES;
-    cout << "Number of Loops: " << pow(10,i) << "\t Average times " << LOOP_SAMPLES << " sample: " << average << endl;
+    cout << "Number of Loops: " << pow(BASE,i) << "\t Average times " << LOOP_SAMPLES << " sample: " << average << endl;
   }
 }
 
