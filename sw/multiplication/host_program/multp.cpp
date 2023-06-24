@@ -25,6 +25,7 @@
 #define LOOP_SAMPLES    10
 #define TIMES           13
 #define BASE            2
+#define FACTOR_MULT     2
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
@@ -66,7 +67,7 @@ void streamCmd (void) {
   for (size_t i=0; i<TIMES; i++) {
     for (size_t sample=0; sample<LOOP_SAMPLES; sample++) {
       op.st.times = pow(BASE,i);
-      op.st.factor = 1;
+      op.st.factor = FACTOR_MULT;
       auto startTime = chrono::high_resolution_clock::now();
       sendUDP(op);
       auto endTime = chrono::high_resolution_clock::now();

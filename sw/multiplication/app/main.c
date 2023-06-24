@@ -70,8 +70,8 @@ static void vprvProcVec (void *pvParameters) {
     dbg("\n\rFactor= %u / Times=%u", op.factor, op.times);
 
     for (size_t i=0; i<op.times; i++) {
-      for (size_t i=0; i<TOTAL_SIZE_KIB*256; i++) {
-        gTotal += gArray[i]*op.factor;
+      for (size_t j=0; j<TOTAL_SIZE_KIB*256; j++) {
+        gTotal += gArray[j]*op.factor;
       }
     }
 
