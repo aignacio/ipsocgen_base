@@ -25,3 +25,6 @@
 [submodule "sw/histogram_app/libs/FreeRTOS-Kernel"]
 	path = sw/histogram_app/libs/FreeRTOS-Kernel
 	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git
+[submodule "sw/multiplication/libs/FreeRTOS-Kernel"]
+	path = sw/multiplication/libs/FreeRTOS-Kernel
+	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git
