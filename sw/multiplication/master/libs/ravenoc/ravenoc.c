@@ -93,6 +93,10 @@ void vRaveNoCSendNoCMsg (uint8_t ucTileNumber, uint8_t ucPktSize, uint32_t ulDat
   }
 }
 
+void vRaveNoCWrBuffer (uint32_t ulData) {
+  *pulRaveNoCWrBuffer = ulData;
+}
+
 uint32_t ulRaveNoCGetHeader (uint8_t ucTileNumber, uint8_t ucPktSize, uint32_t ulData) {
   if (ucTileNumber > (masterNOC_TOTAL_TILES)-1) {
     dbg("\n\r[RaveNoC-Error] Tile number out of range, please choose between 0 to %d!", masterNOC_TOTAL_TILES-1);

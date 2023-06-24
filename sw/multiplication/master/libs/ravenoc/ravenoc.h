@@ -76,4 +76,6 @@ RaveNoCInfo_t xRaveNoCGetNoCID (void);
 uint32_t ulRaveNoCGetNoCData (void);
 uint8_t ucRaveNoCGetNoCPktSize (void);
 uint32_t ucRaveNoCGetWrBufferFull (void);
+void vRaveNoCWrBuffer (uint32_t ulData);
+
 #endif

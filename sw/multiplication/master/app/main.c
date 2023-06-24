@@ -19,86 +19,67 @@
 
 TaskHandle_t xHandleRecvData;
 static QueueHandle_t xCmdQ;
+static QueueHandle_t xSentReadyQ;
 static QueueHandle_t xEthSentQ;
 static QueueHandle_t xRecvArrayQ;
-static QueueHandle_t xDMADoneQ;
+static QueueHandle_t xNoCPktFromSlavesQ;
 
 static SemaphoreHandle_t xDMAMutex;
 MasterType_t xMasterCurStatus = MASTER_STATUS_IDLE;
-
-uint16_t gSizeKiB = 0;
-uint16_t gVectorFactor = 0; // Factor to multiply
-uint16_t gVectorTimes = 0; // Factor times
-uint32_t gArray [256*5];
+static SemaphoreHandle_t xSlaveTileResMutex;
+static uint8_t  ucSlaveTileResVec [masterNOC_TOTAL_TILES];
 
 void vSetEth (void);
 void vSendAckEth (void);
 void vSetEth (void);
+static void ucprvSetFreeSlaveTile (uint8_t index);
+static uint8_t ucprvGetFreeSlaveTile (void);
 
 static void vprvRecvCmd (void *pvParameters) {
-  Cmd_t cmd;
+  uint8_t ucBuffer;
+  uint8_t empty;
 
+  dbg("\n\rTask vprvRecvCmd ready");
   for (;;) {
-    xQueueReceive(xCmdQ, &cmd, portMAX_DELAY);
-    switch (cmd.st.pkt_type) {
-      case CMD_NONE:
-        dbg("\n\r[CMD] None");
+    xQueueReceive(xNoCPktFromSlavesQ, &ucBuffer, portMAX_DELAY);
+    uint8_t xSlaveFree = (ulRaveNoCGetNoCData() & 0xFF);
+    ucprvSetFreeSlaveTile(xSlaveFree);
+    
+    empty = 1;
+    xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
+    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++){
+      if (ucSlaveTileResVec[i] == 0) {
+        empty = 0;
         break;
-      case CMD_RECV_ARRAY:
-        dbg("\n\r[CMD] CMD_RECV_ARRAY: arg1: %d / arg2: %d", cmd.st.arg1, cmd.st.arg2);
-        break;
-      case CMD_MULT_FACTOR:
-        dbg("\n\r[CMD] CMD_MULT_FACTOR: arg1: %d / arg2: %d", cmd.st.arg1, cmd.st.arg2);
-        gVectorFactor = cmd.st.arg1; 
-        gVectorTimes = cmd.st.arg2; 
-        break;
-      case CMD_GET_RESULT:
-        dbg("\n\r[CMD] CMD_GET_RESULT");
-        break;
-      default:
-        dbg("\n\rDefault");
-        break;
+      }
     }
-    vSendAckEth();
+    xSemaphoreGive(xSlaveTileResMutex);
+
+    if (empty == 1) {
+      xQueueReceive(xSentReadyQ, &ucBuffer, portMAX_DELAY);
+      vEthClearInfifoPtr();
+      vSendAckEth();
+      dbg("\n\rDone");
+    }
   }
 }
 
 static void vprvProcVec (void *pvParameters) {
-  uint8_t ucBuff = 0x00;
+  Oper_t op;
+  uint8_t ucBuffer;
 
-  /*DMADesc_t xDMACopyDesc = {*/
-    /*.SrcAddr  = (uint32_t*)ethINFIFO_ADDR,*/
-    /*.DstAddr  = (uint32_t*)ravenocWR_BUFFER,*/
-    /*.NumBytes = (masterETH_PKT_SIZE_BYTES-4),*/
-    /*.Cfg = {*/
-      /*.WrMode = DMA_MODE_FIXED,*/
-      /*.RdMode = DMA_MODE_FIXED,*/
-      /*.Enable = DMA_MODE_ENABLE*/
-    /*}*/
-  /*};*/
-
-  /*vDMASetDescCfg(0, xDMACopyDesc);*/
-  
+  dbg("\n\rTask vprvProcVec ready");
   for (;;) {
-    xQueueReceive(xRecvArrayQ, &ucBuff, portMAX_DELAY);
-    /*if (gSizeKiB == 0){*/
-      /*dbg("\n\r! Error - Received more than it should !");*/
-      /*reset_soc();*/
-    /*} else {*/
-      /*gSizeKiB -= 1;*/
-    /*}*/
-    /*// All packets are 1KiB*/
-    /*vRaveNoCSendNoCMsg(gSizeKiB, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM);*/
-    /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
-    /*// Launch the DMA for descriptor 0 only*/
-    /*vDMASetDescGo(0);*/
-    /*//Wait DMA completion*/
-    /*masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuff, pdMS_TO_TICKS(500)), "Timeout DMA");*/
-    /*// Release the mutex*/
-    /*xSemaphoreGive(xDMAMutex);*/
-    /*// Clean the ptr to zero the INFIFO*/
-    /*vEthClearInfifoPtr();*/
-    /*vSendAckEth();*/
+    xQueueReceive(xRecvArrayQ, &op, portMAX_DELAY);
+    dbg("\n\rReceive to proc: Loop[%d] Factor[%d]", op.times, op.factor);
+    
+    for (size_t i=0; i<op.times; i++) {
+      vRaveNoCSendNoCMsg(ucprvGetFreeSlaveTile(), 2, 0xaa);
+      vRaveNoCWrBuffer(0x1);
+      vRaveNoCWrBuffer(op.factor);
+    }
+
+    xQueueSend(xSentReadyQ, &ucBuffer, portMAX_DELAY);
   }
 }
 
@@ -121,26 +102,24 @@ int main (void) {
   // IRQs
   // Enable IRQs
   vIRQClearMaskSingle(irqMASK_RAVENOC_PKT);
-  vIRQClearMaskSingle(irqMASK_DMA_0_ERROR);
-  vIRQClearMaskSingle(irqMASK_DMA_0_DONE);
   vIRQClearMaskSingle(irqMASK_ETH_RECV);
   vIRQClearMaskSingle(irqMASK_ETH_SENT);
-  /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
 
-  // DMA
-  vDMAInit();
-  
-  xDMAMutex = xSemaphoreCreateMutex();
-  if (xDMAMutex == NULL) {
-    masterCRASH_DBG_INFO("Cannot create the mutexes");
-  }
   // ------------------------------------
   // Queues
   // ------------------------------------
-  xCmdQ = xQueueCreate(1, sizeof(Cmd_t));
   xEthSentQ = xQueueCreate(1, sizeof(uint8_t));
-  xRecvArrayQ = xQueueCreate(1, sizeof(uint8_t));
-  xDMADoneQ = xQueueCreate(1, sizeof(uint32_t));
+  xRecvArrayQ = xQueueCreate(1, sizeof(Oper_t));
+  xSentReadyQ = xQueueCreate(1, sizeof(uint8_t));
+  xNoCPktFromSlavesQ = xQueueCreate(1, sizeof(uint8_t));
+
+  xSlaveTileResMutex = xSemaphoreCreateMutex();
+  if (xSlaveTileResMutex == NULL) {
+    masterCRASH_DBG_INFO("Cannot create the mutexes");
+  }
+  // Initialize array of slaves availability
+  for (size_t i=0; i<masterNOC_TOTAL_TILES; i++)
+    ucSlaveTileResVec[i] = 1;
 
   xReturned = xTaskCreate(
     vprvRecvCmd,
@@ -166,34 +145,28 @@ int main (void) {
   for(;;);
 }
 
-void vSystemIrqHandler(uint32_t ulMcause){
+void vSystemIrqHandler(uint32_t ulMcause) {
   IRQEncoding_t xIRQID = xIRQGetIDFifo();
   BaseType_t    xHigherPriorityTaskWoken;
   uint8_t       ucBuffer8 = 0x00;
 
   switch (xIRQID) {
     case(IRQ_RAVENOC_PKT):
-      break;
-    case(IRQ_DMA_0_DONE):
-      // Clear the done IRQ
-      vDMAClearGo();
-      xQueueSendFromISR(xDMADoneQ, &ucBuffer8, &xHigherPriorityTaskWoken);
+      ucBuffer8 = ucRaveNoCGetNoCPktSize();
+      xQueueSendFromISR(xNoCPktFromSlavesQ, &ucBuffer8, &xHigherPriorityTaskWoken);
       if(xHigherPriorityTaskWoken == pdTRUE){
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
       }
       break;
-
+    case(IRQ_DMA_0_DONE):
       break;
     case(IRQ_ETH_RECV):
       if (xMasterCurStatus == MASTER_STATUS_IDLE) {
-        Cmd_t cmd = {.word = ulEthGetRecvData()};
+        Oper_t test;
 
-        // Disable local eth recv and only when eth has received 1 KiB
-        // also, clears the pointers
-        /*vIRQSetMaskSingle(irqMASK_ETH_RECV);*/
-        /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
-        vEthClearInfifoPtr();
-        xQueueSendFromISR(xCmdQ, &cmd, &xHigherPriorityTaskWoken);
+        test.factor = ulEthGetRecvData();
+        test.times = ulEthGetRecvData();
+        xQueueSendFromISR(xRecvArrayQ, &test, &xHigherPriorityTaskWoken);
         if(xHigherPriorityTaskWoken == pdTRUE){
           portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
@@ -213,7 +186,49 @@ void vSystemIrqHandler(uint32_t ulMcause){
       break;
   }
 }
+
 // ----------------------------- Complementary fn --------------------------------
+static uint8_t ucprvGetFreeSlaveTile (void) {
+  uint8_t ucAllSlavesBusy = 1;
+  uint8_t ucFreeSlaveIndex = 0;
+  uint8_t temp;
+  uint32_t ulTimeoutSlaveCnt = 0;
+
+  while (ucAllSlavesBusy) {
+    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
+
+      xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
+      temp = ucSlaveTileResVec[i]; 
+      xSemaphoreGive(xSlaveTileResMutex);
+
+      if (temp == 1) {
+        ucFreeSlaveIndex = i;
+        ucAllSlavesBusy = 0;
+        break;
+      }
+    }
+    ulTimeoutSlaveCnt++;
+    if (ulTimeoutSlaveCnt > 100000) {
+      masterCRASH_DBG_INFO("[TIMEOUT] No slaves available");
+    }
+  }
+
+  xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
+  ucSlaveTileResVec[ucFreeSlaveIndex] = 0;
+  xSemaphoreGive(xSlaveTileResMutex);
+
+  if (ucFreeSlaveIndex == 0) {
+    masterCRASH_DBG_INFO("Master cannot be a valid free resource!");
+  }
+
+  return ucFreeSlaveIndex;
+}
+
+static void ucprvSetFreeSlaveTile (uint8_t index) {
+  xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
+  ucSlaveTileResVec[index] = 1;
+  xSemaphoreGive(xSlaveTileResMutex);
+}
 
 void vSendAckEth (void) {
   uint8_t payload[4] = {0xAA, 0xBB, 0xCC, 0xDD};

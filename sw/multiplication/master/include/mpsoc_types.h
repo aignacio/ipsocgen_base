@@ -11,22 +11,9 @@ typedef enum {
   MASTER_STATUS_ERROR     = 3
 } MasterType_t;
 
-typedef enum {
-  CMD_NONE        = 0,
-  CMD_RECV_ARRAY  = 1,
-  CMD_MULT_FACTOR = 2,
-  CMD_GET_RESULT  = 3
-} CmdType_t;
-
-typedef uint32_t arg_t;
-
-typedef union {
-  uint32_t word;
-  struct {
-    CmdType_t pkt_type:2;
-    arg_t     arg1:15; // Array size in KiB
-    arg_t     arg2:15; // Factor
-  } st;
-} Cmd_t;
+typedef struct {
+  uint32_t factor;
+  uint32_t times;
+} Oper_t;
 
 #endif

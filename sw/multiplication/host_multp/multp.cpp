@@ -22,6 +22,10 @@
 #define FPGA_IP         "192.168.1.130"
 #define FPGA_PORT       1234
 #define PACKET_SIZE     1024
+#define LOOP_SAMPLES    10
+#define TIMES           13
+#define BASE            2
+#define FACTOR_MULT     2
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
@@ -30,23 +34,13 @@ int    sockfd;
 using namespace std;
 using namespace cv;
 
-typedef enum {
-  CMD_NONE        = 0,
-  CMD_RECV_ARRAY  = 1,
-  CMD_MULT_FACTOR = 2,
-  CMD_GET_RESULT  = 3
-} CmdType_t;
-
-typedef uint32_t arg_t;
-
 typedef union {
-  uint32_t word;
+  uint64_t dword;
   struct {
-    CmdType_t pkt_type:2;
-    arg_t     arg1:15; // Array size in KiB
-    arg_t     arg2:15; // Factor
+    uint32_t factor;
+    uint32_t times;
   } st;
-} Cmd_t;
+} Oper_t;
 
 double measureElapsedTime(bool reset = false) {
   static auto startTime = chrono::high_resolution_clock::now();
@@ -61,21 +55,38 @@ double measureElapsedTime(bool reset = false) {
   return elapsedTime;
 }
 
-void sendUDP (uint32_t payload);
+void sendUDP (Oper_t op);
 
 void streamCmd (void) {
   using namespace std::this_thread; // sleep_for, sleep_until
   using namespace std::chrono; // nanoseconds, system_clock, seconds
 
-  while(true) {
-    Cmd_t test;
+  Oper_t op;
+  double elapsed_time_vec [TIMES][LOOP_SAMPLES];
 
-    test.st.pkt_type = CMD_MULT_FACTOR;
-    test.st.arg1 = 22;
-    test.st.arg2 = 13;
-    sendUDP(test.word);
+  for (size_t i=0; i<TIMES; i++) {
+    for (size_t sample=0; sample<LOOP_SAMPLES; sample++) {
+      op.st.times = pow(BASE,i);
+      op.st.factor = FACTOR_MULT;
+      auto startTime = chrono::high_resolution_clock::now();
+      sendUDP(op);
+      auto endTime = chrono::high_resolution_clock::now();
+      auto elapsedTime = chrono::duration<double, milli>(endTime - startTime).count();
+      elapsed_time_vec[i][sample] = elapsedTime;
+      cout << "Sample: " << sample << " Factor: " << op.st.factor << " Times: " << op.st.times << " - Elapse time: " << elapsedTime << endl;
+    }
+  }
 
-    sleep_for(seconds(1));
+  cout << endl;
+  cout << "Results:" << endl;
+
+  for (size_t i=0; i<TIMES; i++) {
+    double average = 0;
+    for (size_t j=0; j<LOOP_SAMPLES; j++) {
+      average += elapsed_time_vec[i][j];
+    }
+    average /= LOOP_SAMPLES;
+    cout << "Number of Loops: " << pow(BASE,i) << "\t Average times " << LOOP_SAMPLES << " sample: " << average << endl;
   }
 }
 
@@ -86,31 +97,31 @@ int main(void) {
     std::cerr << "Error creating socket." << std::endl;
     return 1;
   }
-  
+
   // Configure server address
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_addr.s_addr = inet_addr(FPGA_IP);
   serverAddress.sin_port = htons(1234);
-  
+
   // Bind socket to local port 1234
   localAddress.sin_family = AF_INET;
   localAddress.sin_addr.s_addr = INADDR_ANY;
   localAddress.sin_port = htons(1234);
   bind(sockfd, (struct sockaddr *)&localAddress, sizeof(localAddress));
-  
+
   // Create two threads for video streaming and histogram plotting
   thread streamThread(streamCmd);
-  
+
   // Wait for the threads to finish
   streamThread.join();
-  
+
   return 0;
 }
 
 // ------------------- AUX
-void sendUDP (uint32_t data) {
+void sendUDP (Oper_t op) {
   const char* ackFPGA = "\xaa\xbb\xcc\xdd";  // Hexadecimal value to compare against
-  uint32_t payload = data;//htonl(data);
+  uint64_t payload = op.dword;//htonl(data);
   struct sockaddr_in clientAddress;
 
   // Send
@@ -120,10 +131,10 @@ void sendUDP (uint32_t data) {
   // Receive
   char buffer[4];
   int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer),
-                           0, (struct sockaddr *)&clientAddress, 
+                           0, (struct sockaddr *)&clientAddress,
                            &clientAddressLength);
   if (bytesRead == -1)
     std::cerr << "Failed to receive data!" << endl;
   if (memcmp(buffer, ackFPGA, sizeof(buffer)) != 0)
     std::cerr << "ACK not received!" << endl;
-}
+ }
