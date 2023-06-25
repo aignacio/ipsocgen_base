@@ -23,8 +23,8 @@
 #define FPGA_PORT       1234
 #define PACKET_SIZE     1024
 #define LOOP_SAMPLES    10
-#define START_TIMES     4
-#define TIMES           5
+#define START_TIMES     2
+#define TIMES           6
 #define BASE            10
 #define FACTOR_MULT     123
 

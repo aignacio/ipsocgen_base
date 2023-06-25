@@ -198,8 +198,10 @@ void vSetEth (void) {
     .Src              = 1234,
     .Dst              = 1234,
     .Len              = 4,
-    .IPAddr.bytes     = {192, 168,   1, 223},
-    .MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}
+    //.IPAddr.bytes     = {192, 168,   1, 223},
+    .IPAddr.bytes     = {192, 168,   1, 141},
+    //.MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}
+    .MACAddr.bytes    = {0x00, 0x00, 0x22, 0x20, 0x5c, 0x06, 0x13, 0xb9}
   };
 
   EthFilterCfg_t xFilterCfg = {
