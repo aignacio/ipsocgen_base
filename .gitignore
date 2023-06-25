@@ -36,4 +36,4 @@ riscv-arch-test/
 *.jou
 *.fst.hier
 build/
-vivado*
+vivado*.log
