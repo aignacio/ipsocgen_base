@@ -13,10 +13,15 @@ static volatile uint32_t* const pulRaveNoCCol         = (uint32_t*)ravenocCSR_CO
 static volatile uint32_t* const pulRaveNoCWrBuffFull  = (uint32_t*)ravenocCSR_WR_BUFFER_FULL;
 static volatile uint32_t* const pulRaveNoCVc0PktSz    = (uint32_t*)ravenocCSR_VC0_PKT_SIZE;
 static volatile uint32_t* const pulRaveNoCIRQMux      = (uint32_t*)ravenocCSR_IRQ_RD_MUX;
+static volatile uint32_t* const pulRaveNoCIRQAck      = (uint32_t*)ravenocCSR_IRQ_ACK;
 
 RaveNoCInfo_t xgTile;
 uint8_t       ucgTileLUTx[slaveNOC_TOTAL_TILES];
 uint8_t       ucgTileLUTy[slaveNOC_TOTAL_TILES];
+
+void vRaveNoCIRQAck (void) {
+  *pulRaveNoCIRQAck = 0x00;
+}
 
 static uint32_t ulprvMaskMsg (uint32_t ulData) {
   for (size_t i=ravenocWIDTH_MSG; i<32; i++) {

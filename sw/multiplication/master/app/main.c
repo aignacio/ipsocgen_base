@@ -18,13 +18,11 @@
 #include "mpsoc_types.h"
 
 TaskHandle_t xHandleRecvData;
-static QueueHandle_t xCmdQ;
 static QueueHandle_t xSentReadyQ;
 static QueueHandle_t xEthSentQ;
 static QueueHandle_t xRecvArrayQ;
 static QueueHandle_t xNoCPktFromSlavesQ;
 
-static SemaphoreHandle_t xDMAMutex;
 MasterType_t xMasterCurStatus = MASTER_STATUS_IDLE;
 static SemaphoreHandle_t xSlaveTileResMutex;
 static uint8_t  ucSlaveTileResVec [masterNOC_TOTAL_TILES];
@@ -35,43 +33,15 @@ void vSetEth (void);
 static void ucprvSetFreeSlaveTile (uint8_t index);
 static uint8_t ucprvGetFreeSlaveTile (void);
 
-static void vprvRecvCmd (void *pvParameters) {
-  uint8_t ucBuffer;
-  uint8_t empty;
-
-  dbg("\n\rTask vprvRecvCmd ready");
-  for (;;) {
-    xQueueReceive(xNoCPktFromSlavesQ, &ucBuffer, portMAX_DELAY);
-    uint8_t xSlaveFree = (ulRaveNoCGetNoCData() & 0xFF);
-    ucprvSetFreeSlaveTile(xSlaveFree);
-    
-    empty = 1;
-    xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
-    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++){
-      if (ucSlaveTileResVec[i] == 0) {
-        empty = 0;
-        break;
-      }
-    }
-    xSemaphoreGive(xSlaveTileResMutex);
-
-    if (empty == 1) {
-      xQueueReceive(xSentReadyQ, &ucBuffer, portMAX_DELAY);
-      vEthClearInfifoPtr();
-      vSendAckEth();
-      dbg("\n\rDone");
-    }
-  }
-}
-
 static void vprvProcVec (void *pvParameters) {
   Oper_t op;
   uint8_t ucBuffer;
+  uint8_t empty;
 
   dbg("\n\rTask vprvProcVec ready");
   for (;;) {
     xQueueReceive(xRecvArrayQ, &op, portMAX_DELAY);
-    dbg("\n\rReceive to proc: Loop[%d] Factor[%d]", op.times, op.factor);
+    /*dbg("\n\rLoop[%d] Factor[%d]", op.times, op.factor);*/
     
     for (size_t i=0; i<op.times; i++) {
       vRaveNoCSendNoCMsg(ucprvGetFreeSlaveTile(), 2, 0xaa);
@@ -79,7 +49,53 @@ static void vprvProcVec (void *pvParameters) {
       vRaveNoCWrBuffer(op.factor);
     }
 
-    xQueueSend(xSentReadyQ, &ucBuffer, portMAX_DELAY);
+    /*dbg("\n\rall sent!");*/
+    empty = 0;
+
+    while(!empty) {
+      /*dbg(".");*/
+      /*vTaskDelay(1000/portTICK_PERIOD_MS);*/
+      empty = 1;
+      for (size_t i=1; i<masterNOC_TOTAL_TILES; i++){
+        if (ucSlaveTileResVec[i] == 0) {
+          empty = 0;
+          /*dbg(" %d/%d",i,ucSlaveTileResVec[i]);*/
+          break;
+        }
+      }
+    }
+    vEthClearInfifoPtr();
+    vSendAckEth();
+    /*dbg("\n\rDone");*/
+    
+    /*xQueueSend(xSentReadyQ, &ucBuffer, portMAX_DELAY);*/
+  }
+}
+
+/*static void vprvSendCmd (void *pvParameters) {*/
+  /*Oper_t op;*/
+
+  /*dbg("\n\rTask Send ready");*/
+  /*for (;;) {*/
+    /*op.times = 8;*/
+    /*op.factor = 2;*/
+    /*if( xQueueSend(xRecvArrayQ, &op, (TickType_t)10) != pdPASS ) {*/
+      /*dbg("\n\rFailed to send");*/
+    /*}*/
+    /*vTaskDelay(1000/portTICK_PERIOD_MS);*/
+  /*}*/
+/*}*/
+
+static void vprvFreeSlaves (void *pvParameters) {
+  uint8_t ucBuffer;
+
+  dbg("\n\rTask vprvFreeSlaves ready");
+  for (;;) {
+    xQueueReceive(xNoCPktFromSlavesQ, &ucBuffer, portMAX_DELAY);
+    uint8_t xSlaveFree = (ulRaveNoCGetNoCData() & 0xFF);
+    /*dbg("\n\rFree=%d", xSlaveFree);*/
+    ucprvSetFreeSlaveTile(xSlaveFree);
+    vRaveNoCIRQAck();
   }
 }
 
@@ -121,14 +137,14 @@ int main (void) {
   for (size_t i=0; i<masterNOC_TOTAL_TILES; i++)
     ucSlaveTileResVec[i] = 1;
 
-  xReturned = xTaskCreate(
-    vprvRecvCmd,
-    "Receive Commands",
-    configMINIMAL_STACK_SIZE*2U,
-    NULL,
-    tskIDLE_PRIORITY+1,
-    &xHandleRecvData);
-  masterCHECK_TASK(xReturned);
+  /*xReturned = xTaskCreate(*/
+    /*vprvSendCmd,*/
+    /*"Send Commands",*/
+    /*configMINIMAL_STACK_SIZE*2U,*/
+    /*NULL,*/
+    /*tskIDLE_PRIORITY+1,*/
+    /*&xHandleRecvData);*/
+  /*masterCHECK_TASK(xReturned);*/
 
   xReturned = xTaskCreate(
     vprvProcVec,
@@ -139,6 +155,16 @@ int main (void) {
     &xHandleRecvData);
   masterCHECK_TASK(xReturned);
 
+  xReturned = xTaskCreate(
+    vprvFreeSlaves,
+    "Process the slave answer",
+    configMINIMAL_STACK_SIZE*3U,
+    NULL,
+    tskIDLE_PRIORITY+1,
+    &xHandleRecvData);
+  masterCHECK_TASK(xReturned);
+
+  //vRaveNoCIRQAck();
   vTaskStartScheduler();
 
   // Should never reach here...

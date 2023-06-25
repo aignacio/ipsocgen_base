@@ -25,7 +25,7 @@
 #define LOOP_SAMPLES    10
 #define TIMES           13
 #define BASE            2
-#define FACTOR_MULT     2
+#define FACTOR_MULT     123
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
@@ -74,6 +74,7 @@ void streamCmd (void) {
       auto elapsedTime = chrono::duration<double, milli>(endTime - startTime).count();
       elapsed_time_vec[i][sample] = elapsedTime;
       cout << "Sample: " << sample << " Factor: " << op.st.factor << " Times: " << op.st.times << " - Elapse time: " << elapsedTime << endl;
+      //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
 

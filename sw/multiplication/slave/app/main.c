@@ -74,16 +74,18 @@ static void vprvProcVec (void *pvParameters) {
   uint8_t ucBuffer8;
   uint32_t header, times, factor;
 
+  dbg("\n\rTask vprvProcVec ready");
   for (;;) {
-    dbg("\n\rTask vprvProcVec ready");
 
     xQueueReceive(xNoCMailboxQ, &ucBuffer8, portMAX_DELAY);
+    vRaveNoCIRQAck();
+    gTotal = 0;
 
     header = ulRaveNoCGetNoCData();
     times  = ulRaveNoCGetNoCData();
     factor = ulRaveNoCGetNoCData();
 
-    dbg("\n\rHeader = %x / Factor= %u / Times=%u", header, factor, times);
+    /*dbg("\n\rHeader = %x / Factor= %u / Times=%u", header, factor, times);*/
 
     for (size_t i=0; i<times; i++) {
       for (size_t j=0; j<TOTAL_SIZE_KIB*256; j++) {
@@ -91,7 +93,7 @@ static void vprvProcVec (void *pvParameters) {
       }
     }
     vRaveNoCSendNoCMsg(0, 0, ucRaveNoCGetTileID());
-    dbg("\n\rgTotal: %x", gTotal);
+    /*dbg("\n\rgTotal: %x", gTotal);*/
   }
 }
 
