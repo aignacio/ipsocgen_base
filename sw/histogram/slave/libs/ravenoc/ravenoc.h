@@ -25,7 +25,8 @@
 #define ravenocCSR_IRQ_RD_MUX      (ravenocCSR_BASE         + 0x0010)
 #define ravenocCSR_IRQ_RD_MASK     (ravenocCSR_BASE         + 0x0014)
 #define ravenocCSR_WR_BUFFER_FULL  (ravenocCSR_BASE         + 0x0018)
-#define ravenocCSR_VC0_PKT_SIZE    (ravenocCSR_BASE         + 0x001c)
+#define ravenocCSR_IRQ_ACK         (ravenocCSR_BASE         + 0x001c)
+#define ravenocCSR_VC0_PKT_SIZE    (ravenocCSR_BASE         + 0x0020)
 
 #define ravenocWIDTH_X             ucNoCMinWidth[slaveNOC_SIZE_X]
 #define ravenocWIDTH_Y             ucNoCMinWidth[slaveNOC_SIZE_Y]
@@ -76,4 +77,6 @@ RaveNoCInfo_t xRaveNoCGetNoCID (void);
 uint32_t ulRaveNoCGetNoCData (void);
 uint8_t ucRaveNoCGetNoCPktSize (void);
 uint32_t ucRaveNoCGetWrBufferFull (void);
+void vRaveNoCIRQAck (void);
+
 #endif

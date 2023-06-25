@@ -35,7 +35,6 @@ static uint8_t ucprvGetFreeSlaveTile (void);
 
 static void vprvProcVec (void *pvParameters) {
   Oper_t op;
-  uint8_t ucBuffer;
   uint8_t empty;
 
   dbg("\n\rTask vprvProcVec ready");
@@ -43,9 +42,9 @@ static void vprvProcVec (void *pvParameters) {
     xQueueReceive(xRecvArrayQ, &op, portMAX_DELAY);
     /*dbg("\n\rLoop[%d] Factor[%d]", op.times, op.factor);*/
     
-    for (size_t i=0; i<op.times; i++) {
+    for (size_t i=0; i<op.times; i+=100) {
       vRaveNoCSendNoCMsg(ucprvGetFreeSlaveTile(), 2, 0xaa);
-      vRaveNoCWrBuffer(0x1);
+      vRaveNoCWrBuffer(100);
       vRaveNoCWrBuffer(op.factor);
     }
 
@@ -277,8 +276,10 @@ void vSetEth (void) {
     .Src              = 1234,
     .Dst              = 1234,
     .Len              = 4,
-    .IPAddr.bytes     = {192, 168,   1, 223},
-    .MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}
+    /*.IPAddr.bytes     = {192, 168,   1, 223},*/
+    .IPAddr.bytes     = {192, 168,   1, 141},
+    /*.MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}*/
+    .MACAddr.bytes    = {0x00, 0x00, 0x22, 0x20, 0x5c, 0x06, 0x13, 0xb9}
   };
 
   EthFilterCfg_t xFilterCfg = {

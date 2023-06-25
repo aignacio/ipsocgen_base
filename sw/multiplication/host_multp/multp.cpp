@@ -23,8 +23,9 @@
 #define FPGA_PORT       1234
 #define PACKET_SIZE     1024
 #define LOOP_SAMPLES    10
-#define TIMES           13
-#define BASE            2
+#define START_TIMES     2
+#define TIMES           6
+#define BASE            10
 #define FACTOR_MULT     123
 
 struct sockaddr_in serverAddress;
@@ -64,7 +65,7 @@ void streamCmd (void) {
   Oper_t op;
   double elapsed_time_vec [TIMES][LOOP_SAMPLES];
 
-  for (size_t i=0; i<TIMES; i++) {
+  for (size_t i=START_TIMES; i<TIMES; i++) {
     for (size_t sample=0; sample<LOOP_SAMPLES; sample++) {
       op.st.times = pow(BASE,i);
       op.st.factor = FACTOR_MULT;
@@ -74,14 +75,13 @@ void streamCmd (void) {
       auto elapsedTime = chrono::duration<double, milli>(endTime - startTime).count();
       elapsed_time_vec[i][sample] = elapsedTime;
       cout << "Sample: " << sample << " Factor: " << op.st.factor << " Times: " << op.st.times << " - Elapse time: " << elapsedTime << endl;
-      //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
 
   cout << endl;
   cout << "Results:" << endl;
 
-  for (size_t i=0; i<TIMES; i++) {
+  for (size_t i=START_TIMES; i<TIMES; i++) {
     double average = 0;
     for (size_t j=0; j<LOOP_SAMPLES; j++) {
       average += elapsed_time_vec[i][j];

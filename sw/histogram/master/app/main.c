@@ -306,6 +306,7 @@ static void vprvRecvData (void *pvParameters) {
     vDMASetDescCfg(1, xDMARecvData);
     vDMASetDescGo(1);
     masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucSizeSeg, pdMS_TO_TICKS(500)), "Timeout DMA");
+    vRaveNoCIRQAck();
     // Sum the histogram
     vprvCalcHistSlave();
     xSemaphoreGive(xDMAMutex);
@@ -352,7 +353,9 @@ static void vprvSetEth (void) {
     .Src              = 1234,
     .Dst              = 1234,
     .Len              = 4,
+    /*.IPAddr.bytes     = {192, 168,   1, 141},*/
     .IPAddr.bytes     = {192, 168,   1, 223},
+    /*.MACAddr.bytes    = {0x00, 0x00, 0x22, 0x20, 0x5c, 0x06, 0x13, 0xb9}*/
     .MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}
   };
 
@@ -455,6 +458,7 @@ void vSystemIrqHandler(uint32_t ulMcause){
       if(xHigherPriorityTaskWoken == pdTRUE){
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
       }
+
       break;
     case(IRQ_DMA_0_DONE):
       // Clear the done IRQ

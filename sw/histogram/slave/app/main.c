@@ -85,6 +85,7 @@ static void vprvImgSeg(void *pvParameters) {
 
   for (;;) {
     xQueueReceive(xPktProcQ, &usBuffer16, portMAX_DELAY);
+    vRaveNoCIRQAck();
     //Start processing the image segment
     vprvCalcHist(usgSizeSeg);
     // Each local histogram pixel is 16 bits (because max value could be 1024)

@@ -1,9 +1,9 @@
 #PREFIX	?=	/opt/riscv/bin/riscv64-unknown-elf-
-PREFIX	?=	docker run --rm --name sw_mpsoc				\
+PREFIX	?=	podman run --rm --name sw_mpsoc				\
 						-v $(abspath ../..):/files -w					\
 						/files/sw/$(notdir $(shell pwd))			\
 						aignacio/mpsoc riscv32-unknown-elf-
-RUN_PY	?=	docker run --rm --name sw_mpsoc				\
+RUN_PY	?=	podman run --rm --name sw_mpsoc				\
 						-v $(abspath ../..):/files -w					\
 						/files/sw/$(notdir $(shell pwd))			\
 						aignacio/mpsoc python3

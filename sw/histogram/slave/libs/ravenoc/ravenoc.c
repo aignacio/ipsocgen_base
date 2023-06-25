@@ -13,6 +13,7 @@ static volatile uint32_t* const pulRaveNoCCol         = (uint32_t*)ravenocCSR_CO
 static volatile uint32_t* const pulRaveNoCWrBuffFull  = (uint32_t*)ravenocCSR_WR_BUFFER_FULL;
 static volatile uint32_t* const pulRaveNoCVc0PktSz    = (uint32_t*)ravenocCSR_VC0_PKT_SIZE;
 static volatile uint32_t* const pulRaveNoCIRQMux      = (uint32_t*)ravenocCSR_IRQ_RD_MUX;
+static volatile uint32_t* const pulRaveNoCIRQAck      = (uint32_t*)ravenocCSR_IRQ_ACK;
 
 RaveNoCInfo_t xgTile;
 uint8_t       ucgTileLUTx[slaveNOC_TOTAL_TILES];
@@ -134,4 +135,8 @@ uint32_t ucRaveNoCGetWrBufferFull (void) {
 
 void vRaveNoCSendRAWNoCMsg (uint32_t ulData) {
   *pulRaveNoCWrBuffer = ulData;
+}
+
+void vRaveNoCIRQAck (void) {
+  *pulRaveNoCIRQAck = 0x00;
 }

@@ -19,10 +19,6 @@ RaveNoCInfo_t xgTile;
 uint8_t       ucgTileLUTx[slaveNOC_TOTAL_TILES];
 uint8_t       ucgTileLUTy[slaveNOC_TOTAL_TILES];
 
-void vRaveNoCIRQAck (void) {
-  *pulRaveNoCIRQAck = 0x00;
-}
-
 static uint32_t ulprvMaskMsg (uint32_t ulData) {
   for (size_t i=ravenocWIDTH_MSG; i<32; i++) {
     ulData &= ~(1 << i);
@@ -139,4 +135,8 @@ uint32_t ucRaveNoCGetWrBufferFull (void) {
 
 void vRaveNoCSendRAWNoCMsg (uint32_t ulData) {
   *pulRaveNoCWrBuffer = ulData;
+}
+
+void vRaveNoCIRQAck (void) {
+  *pulRaveNoCIRQAck = 0x00;
 }
