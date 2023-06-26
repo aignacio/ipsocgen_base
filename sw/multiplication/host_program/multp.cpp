@@ -23,9 +23,9 @@
 #define FPGA_PORT       1234
 #define PACKET_SIZE     1024
 #define LOOP_SAMPLES    10
-#define START_TIMES     2
-#define TIMES           6
-#define BASE            10
+#define START_TIMES     0
+#define TIMES           13
+#define BASE            2
 #define FACTOR_MULT     123
 
 struct sockaddr_in serverAddress;

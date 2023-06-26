@@ -64,10 +64,11 @@ void vSetEth (void);
 static void vprvProcVec (void *pvParameters) {
   Oper_t op;
 
+  dbg("\n\rTask vprvProcVec ready");
   for (;;) {
-    dbg("\n\rTask vprvProcVec ready");
     xQueueReceive(xRecvArrayQ, &op, portMAX_DELAY);
-    dbg("\n\rFactor= %u / Times=%u", op.factor, op.times);
+    /*dbg("\n\rFactor= %u / Times=%u", op.factor, op.times);*/
+    gTotal = 0;
 
     for (size_t i=0; i<op.times; i++) {
       for (size_t j=0; j<TOTAL_SIZE_KIB*256; j++) {
@@ -75,7 +76,7 @@ static void vprvProcVec (void *pvParameters) {
       }
     }
 
-    dbg("\n\rgTotal: %x", gTotal);
+    /*dbg("\n\rgTotal: %x", gTotal);*/
     vEthClearInfifoPtr();
     vSendAckEth();
   }
