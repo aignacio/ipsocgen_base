@@ -1,0 +1,46 @@
+Sample: 0 Factor: 123 Times: 100 - Elapse time: 432.669
+Sample: 1 Factor: 123 Times: 100 - Elapse time: 302.538
+Sample: 2 Factor: 123 Times: 100 - Elapse time: 298.917
+Sample: 3 Factor: 123 Times: 100 - Elapse time: 298.872
+Sample: 4 Factor: 123 Times: 100 - Elapse time: 301.108
+Sample: 5 Factor: 123 Times: 100 - Elapse time: 298.952
+Sample: 6 Factor: 123 Times: 100 - Elapse time: 300.916
+Sample: 7 Factor: 123 Times: 100 - Elapse time: 298.974
+Sample: 8 Factor: 123 Times: 100 - Elapse time: 304.985
+Sample: 9 Factor: 123 Times: 100 - Elapse time: 298.979
+Sample: 0 Factor: 123 Times: 1000 - Elapse time: 1962.78
+Sample: 1 Factor: 123 Times: 1000 - Elapse time: 1963.16
+Sample: 2 Factor: 123 Times: 1000 - Elapse time: 1960.76
+Sample: 3 Factor: 123 Times: 1000 - Elapse time: 1962.27
+Sample: 4 Factor: 123 Times: 1000 - Elapse time: 1968.87
+Sample: 5 Factor: 123 Times: 1000 - Elapse time: 1970.63
+Sample: 6 Factor: 123 Times: 1000 - Elapse time: 1960.07
+Sample: 7 Factor: 123 Times: 1000 - Elapse time: 1965.95
+Sample: 8 Factor: 123 Times: 1000 - Elapse time: 1967.93
+Sample: 9 Factor: 123 Times: 1000 - Elapse time: 1971.91
+Sample: 0 Factor: 123 Times: 10000 - Elapse time: 18803.9
+Sample: 1 Factor: 123 Times: 10000 - Elapse time: 18804.6
+Sample: 2 Factor: 123 Times: 10000 - Elapse time: 18798.7
+Sample: 3 Factor: 123 Times: 10000 - Elapse time: 18816.7
+Sample: 4 Factor: 123 Times: 10000 - Elapse time: 18812.4
+Sample: 5 Factor: 123 Times: 10000 - Elapse time: 18805.6
+Sample: 6 Factor: 123 Times: 10000 - Elapse time: 18789.4
+Sample: 7 Factor: 123 Times: 10000 - Elapse time: 18796.5
+Sample: 8 Factor: 123 Times: 10000 - Elapse time: 18811.2
+Sample: 9 Factor: 123 Times: 10000 - Elapse time: 18812.3
+Sample: 0 Factor: 123 Times: 100000 - Elapse time: 187426
+Sample: 1 Factor: 123 Times: 100000 - Elapse time: 187429
+Sample: 2 Factor: 123 Times: 100000 - Elapse time: 187442
+Sample: 3 Factor: 123 Times: 100000 - Elapse time: 187504
+Sample: 4 Factor: 123 Times: 100000 - Elapse time: 187437
+Sample: 5 Factor: 123 Times: 100000 - Elapse time: 187409
+Sample: 6 Factor: 123 Times: 100000 - Elapse time: 187435
+Sample: 7 Factor: 123 Times: 100000 - Elapse time: 187435
+Sample: 8 Factor: 123 Times: 100000 - Elapse time: 187444
+Sample: 9 Factor: 123 Times: 100000 - Elapse time: 187405
+
+Results:
+Number of Loops: 100	 Average times 10 sample: 313.691
+Number of Loops: 1000	 Average times 10 sample: 1965.43
+Number of Loops: 10000	 Average times 10 sample: 18805.1
+Number of Loops: 100000	 Average times 10 sample: 187437
