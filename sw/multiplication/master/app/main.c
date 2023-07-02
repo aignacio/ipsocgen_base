@@ -42,13 +42,17 @@ static void vprvProcVec (void *pvParameters) {
     xQueueReceive(xRecvArrayQ, &op, portMAX_DELAY);
     /*dbg("\n\rLoop[%d] Factor[%d]", op.times, op.factor);*/
     
-    for (size_t i=0; i<op.times; i+=25) {
+    /*uint32_t start = rdcycle();*/
+
+    /*dbg("\n\rStart %d",start);*/
+    for (size_t i=0; i<op.times; i+=5) {
       vRaveNoCSendNoCMsg(ucprvGetFreeSlaveTile(), 2, 0xaa);
-      vRaveNoCWrBuffer(25);
+      vRaveNoCWrBuffer(5);
       vRaveNoCWrBuffer(op.factor);
+      /*dbg("\n\rS%d - %d", i, rdcycle());*/
     }
 
-    /*dbg("\n\rall sent!");*/
+    /*uint32_t stop = rdcycle();*/
     empty = 0;
 
     while(!empty) {

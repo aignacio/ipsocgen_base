@@ -78,6 +78,8 @@ static void vprvProcVec (void *pvParameters) {
   for (;;) {
 
     xQueueReceive(xNoCMailboxQ, &ucBuffer8, portMAX_DELAY);
+
+    uint32_t start = rdcycle();
     vRaveNoCIRQAck();
     gTotal = 0;
 
@@ -93,6 +95,9 @@ static void vprvProcVec (void *pvParameters) {
       }
     }
     vRaveNoCSendNoCMsg(0, 0, ucRaveNoCGetTileID());
+
+    /*uint32_t stop = rdcycle();*/
+    /*dbg("\n\rtime to proce: %d", stop-start);*/
     /*dbg("\n\rgTotal: %x", gTotal);*/
   }
 }
