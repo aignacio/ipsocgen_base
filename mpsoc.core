@@ -35,11 +35,6 @@ filesets:
       - rtl/tile_1.sv
       - rtl/tile_2.sv
       - rtl/tile_3.sv
-      - rtl/tile_4.sv
-      - rtl/tile_5.sv
-      - rtl/tile_6.sv
-      - rtl/tile_7.sv
-      - rtl/tile_8.sv
       - rtl/nox_wrapper.sv
     file_type: systemVerilogSource
 

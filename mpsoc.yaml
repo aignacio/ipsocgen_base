@@ -1,0 +1,330 @@
+proj_name: mpsoc # no spaces
+desc: Description of the MP/SoC to be generated
+type: mpsoc # soc, mpsoc
+#fpga_board: arty_a7 # none, arty_a7, nexys_video, aliexpress_qmtech_k325
+mpsoc_desc:
+  clk:
+    name:       clk_pll
+    clk_int:    clk_50MHz
+    io_in_clk:  arty_a7_100MHz
+    type:       pll # pll, direct
+    pll: # if type == pll
+      divclk_divide:    2
+      clkfbout_mult:    17
+      clkout_divide:    17
+      io_rst_pin:       arty_a7_pll_rst
+      rst_in_type:      act_h
+      clkin_period:     10
+  rst:
+    name:         rst
+    rst_int:      rst_int_mpsoc
+    io_in_rst:    arty_a7_rst
+    rst_in_type:  act_h
+    type:         direct
+  noc:
+    type:            'ravenoc'
+    name:            ravenoc
+    size_x:          2
+    size_y:          2
+    flit_data_width: 32
+    flit_buff:       2
+    h_priority:      'ZeroHighPrior'
+    n_virt_chn:      1
+    routing_alg:     'XYAlg'
+    max_sz_pkt:      256
+    base_addr:       "'h0000_0000"
+  tiles:
+    0: &master_tile
+      bus_name:     axi4_crossbar
+      bus_type:     axi4
+      addr_width:   32
+      data_width:   32
+      txn_id_width: 8
+      num_masters:  3
+      num_slaves:   12
+      mmap_type:    manual
+      proc_required: yes
+      clk:
+        name:       clk
+        clk_int:    clk_int
+        io_in_clk:  clk_in
+        type:       direct
+      rst:
+        name:         rst
+        rst_int:      rst_int
+        io_in_rst:    rst_in
+        rst_in_type:  act_h
+        type:         acc_rst
+      proc:
+        name: nox
+        type: nox # nox, vex
+        clk:
+          clk_int: clk_int
+        rst:
+          rst_int: rst_int
+        boot:
+          type:   signal    # slave, value OR signal
+          signal: rst_addr  # any string => if type == signal
+          #slave:  7        # slave id   => if type == slave_id
+          #value:  0        # any value  => if type == value
+        irq_mapping:
+          timer:    irq_mtimer    # name or zero
+          software: irq_uart_rx   # name or zero
+          external: irq_ctrl_ext  # name or zero
+      masters:
+        0:
+          name: nox_fetch # need to be unique
+          desc: NoX CPU - Instr. IF
+          type: cpu_nox # cpu_nox, acc_dma, acc_custom_master
+          if:   nox_instr_bus
+        1:
+          name: nox_lsu
+          desc: NoX CPU - LSU IF
+          type: cpu_nox
+          if:   nox_lsu_bus
+        2:
+          name: dma_0 # Need to be the same name as the slave for the DMA
+          desc: DMA Engine
+          type: acc_dma
+          if:   dma_master
+      slaves:
+        5:
+          name: ravenoc
+          type: acc_noc
+          desc: RaveNoC Slave IF
+          irq_noc: irq_ravenoc
+          base_addr: 0x64000
+          addr_width: 14
+        2:
+          name: iram
+          type: ram_mem
+          desc: Instruction RAM
+          mem_size_kib: 30
+          base_addr: 0x40000
+          addr_width: 17
+        1:
+          name: dram
+          type: ram_mem
+          desc: Data RAM
+          mem_size_kib: 16
+          base_addr: 0x20000
+          addr_width: 17
+        0:
+          name: boot_rom
+          type: rom_mem
+          desc: Boot ROM image
+          mem_size_kib: 20
+          base_addr: 0x00000
+          addr_width: 15
+        3:
+          name:  uart
+          type:  acc_uart
+          desc:  UART Serial IP
+          io_rx: uart_rx_i
+          io_tx: uart_tx_o
+          irq_uart_rx: irq_uart_rx
+          base_addr: 0x60000
+          addr_width: 13
+        6:
+          name: timer
+          type: acc_timer
+          desc: Machine Timer mtimer
+          irq_timer: irq_mtimer
+          base_addr: 0x68000
+          addr_width: 13
+        7:
+          name: dma_0
+          type: acc_dma
+          desc: DMA Engine Control CSRs
+          irq_dma_done: dma_done
+          irq_dma_error: dma_error
+          base_addr: 0x70000
+          addr_width: 13
+        8:
+          name: irq_ctrl
+          type: acc_irq
+          desc: IRQ Controller
+          irq_type: 0xFFFFFFFF
+          irq_summary: irq_ctrl_ext
+          base_addr: 0x72000
+          addr_width: 13
+          vec_mapping:
+            - irq_ravenoc.irq_trig # << Highest priority
+            - dma_error
+            - dma_done
+            - 1'b0
+            - 1'b0
+            - eth_pkt_recv_irq
+            - eth_pkt_sent_irq
+            - eth_pkt_recv_full_irq
+        4:
+          name: rst_ctrl
+          type: acc_rst
+          desc: Reset Controller
+          rst_def_addr: 0 # Slave ID - BootROM
+          rst_pulse_width: 4 # >= 2
+          rst_addr_out: rst_addr
+          io_bootloader: bootloader_i
+          bootloader_type: act_h
+          io_in_rst: rst_in
+          rst_in_type: act_h
+          base_addr: 0x62000
+          addr_width: 13
+        9:
+          name: eth
+          desc: Ethernet Slave RGMII
+          type: acc_eth
+          eth_type: csr
+          clk_ext: clk_in_100MHz
+          pkt_recv_irq: eth_pkt_recv_irq
+          pkt_sent_irq: eth_pkt_sent_irq
+          pkt_recv_full_irq: eth_pkt_recv_full_irq
+          base_addr: 0x74000
+          addr_width: 13
+        10:
+          name: eth_infifo
+          desc: Ethernet InFIFO IF
+          type: acc_eth
+          eth_type: infifo
+          base_addr: 0x76000
+          addr_width: 13
+        11:
+          name: eth_outfifo
+          desc: Ethernet OutFIFO IF
+          type: acc_eth
+          eth_type: outfifo
+          base_addr: 0x78000
+          addr_width: 13
+    1: &std_tile
+      bus_name:     axi4_crossbar
+      bus_type:     axi4
+      addr_width:   32
+      data_width:   32
+      txn_id_width: 8
+      num_masters:  3
+      num_slaves:   9
+      mmap_type:    manual
+      proc_required: yes
+      clk:
+        name:       clk
+        clk_int:    clk_int
+        io_in_clk:  clk_in
+        type:       direct
+      rst:
+        name:         rst
+        rst_int:      rst_int
+        io_in_rst:    rst_in
+        rst_in_type:  act_h
+        type:         acc_rst
+      proc:
+        name: nox
+        type: nox # nox, vex
+        clk:
+          clk_int: clk_int
+        rst:
+          rst_int: rst_int
+        boot:
+          type:   signal    # slave, value OR signal
+          signal: rst_addr  # any string => if type == signal
+          #slave:  7        # slave id   => if type == slave_id
+          #value:  0        # any value  => if type == value
+        irq_mapping:
+          timer:    irq_mtimer    # name or zero
+          software: irq_uart_rx   # name or zero
+          external: irq_ctrl_ext  # name or zero
+      masters:
+        0:
+          name: nox_fetch # need to be unique
+          desc: NoX CPU - Instr. IF
+          type: cpu_nox # cpu_nox, acc_dma, acc_custom_master
+          if:   nox_instr_bus
+        1:
+          name: nox_lsu
+          desc: NoX CPU - LSU IF
+          type: cpu_nox
+          if:   nox_lsu_bus
+        2:
+          name: dma_0 # Need to be the same name as the slave for the DMA
+          desc: DMA Engine
+          type: acc_dma
+          if:   dma_master
+      slaves:
+        5:
+          name: ravenoc
+          type: acc_noc
+          desc: RaveNoC Slave IF
+          irq_noc: irq_ravenoc
+          base_addr: 0x64000
+          addr_width: 14
+        2:
+          name: iram
+          type: ram_mem
+          desc: Instruction RAM
+          mem_size_kib: 20
+          base_addr: 0x40000
+          addr_width: 17
+        1:
+          name: dram
+          type: ram_mem
+          desc: Data RAM
+          mem_size_kib: 16
+          base_addr: 0x20000
+          addr_width: 17
+        0:
+          name: boot_rom
+          type: rom_mem
+          desc: Boot ROM image
+          mem_size_kib: 20
+          base_addr: 0x00000
+          addr_width: 15
+        3:
+          name:  uart
+          type:  acc_uart
+          desc:  UART Serial IP
+          io_rx: uart_rx_i
+          io_tx: uart_tx_o
+          irq_uart_rx: irq_uart_rx
+          base_addr: 0x60000
+          addr_width: 13
+        6:
+          name: timer
+          type: acc_timer
+          desc: Machine Timer
+          irq_timer: irq_mtimer
+          base_addr: 0x68000
+          addr_width: 13
+        7:
+          name: dma_0
+          type: acc_dma
+          desc: DMA Engine Control CSRs
+          irq_dma_done: dma_done
+          irq_dma_error: dma_error
+          base_addr: 0x70000
+          addr_width: 13
+        8:
+          name: irq_ctrl
+          type: acc_irq
+          desc: IRQ Controller
+          irq_type: 0xFFFFFFFF
+          irq_summary: irq_ctrl_ext
+          base_addr: 0x72000
+          addr_width: 13
+          vec_mapping:
+            - irq_ravenoc.irq_trig # << Highest priority
+            - dma_error
+            - dma_done
+        4:
+          name: rst_ctrl
+          type: acc_rst
+          desc: Reset Controller
+          rst_def_addr: 0 # Slave ID - BootROM
+          rst_pulse_width: 4 # >= 2
+          rst_addr_out: rst_addr
+          io_bootloader: bootloader_i
+          bootloader_type: act_h
+          io_in_rst: rst_in
+          rst_in_type: act_h
+          base_addr: 0x62000
+          addr_width: 13
+    2: *std_tile
+    3: *std_tile

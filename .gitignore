@@ -35,3 +35,5 @@ riscv-arch-test/
 *.jou
 *.fst.hier
 vivado_*.*
+xsim*
+xvlog.pb

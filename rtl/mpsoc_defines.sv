@@ -16,8 +16,8 @@
 `define H_PRIORITY            	ZeroHighPrior
 `define ROUTING_ALG           	XYAlg
 `define MAX_SZ_PKT            	256
-`define NOC_CFG_SZ_ROWS       	3
-`define NOC_CFG_SZ_COLS       	3
+`define NOC_CFG_SZ_ROWS       	2
+`define NOC_CFG_SZ_COLS       	2
 `define RAVENOC_BASE_ADDR     	'h64000
 `define N_VIRT_CHN            	1
 `define RD_AXI_BFF(x)         	x<=2?2:4
