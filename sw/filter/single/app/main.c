@@ -216,6 +216,9 @@ static void vprvCopyImg (void *pvParameters) {
     //masterTIMEOUT_INFO(xQueueReceive(xStartFetchImgQ, &cmd, pdMS_TO_TICKS(10000)), "Receive cmd");
     xQueueReceive(xStartFetchImgQ, &cmd, portMAX_DELAY);
     switch (cmd) {
+      case CMD_FILTER:
+        vprvSendAckEth();
+        break;
       case CMD_NONE:
         dbg("\n\r[CMD] None");
         break;
@@ -223,9 +226,6 @@ static void vprvCopyImg (void *pvParameters) {
         vprvSendHistEth();
         vIRQSetMaskSingle(irqMASK_ETH_RECV_FULL);
         vIRQClearMaskSingle(irqMASK_ETH_RECV);
-        break;
-      case CMD_FILTER:
-        vprvSendAckEth();
         break;
       case CMD_HISTOGRAM:
         /*dbg("\n\r[CMD] Histogram - Pixels - %d", ulNumPixels);*/
@@ -357,7 +357,7 @@ static void vprvSetEth (void) {
     .Dst              = 1234,
     .Len              = 4,
     /*.IPAddr.bytes     = {192, 168,   1, 141},*/
-    /*.IPAddr.bytes     = {192, 168,   1, 176},*/
+    //.IPAddr.bytes     = {192, 168,   1, 223},
     .IPAddr.bytes     = {192, 168,   1, 176},
     /*.MACAddr.bytes    = {0x00, 0x00, 0x22, 0x20, 0x5c, 0x06, 0x13, 0xb9}*/
     /*.MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}*/
@@ -476,22 +476,17 @@ void vSystemIrqHandler(uint32_t ulMcause){
     case(IRQ_ETH_RECV):
       if (xMasterCurStatus == MASTER_STATUS_IDLE) {
         CmdType_t cmd_type;
-        cmd.st.dim_x = 1;
-        cmd.st.dim_y = 1;
+
         cmd_type = CMD_FILTER;
-        /*ulNumPixels = cmd.st.dim_x*cmd.st.dim_y;*/
-        /*dbg("\n\r[CMD] Len=%d / Data=%d / Dim[x]=%d / Dim[y]=%d",*/
-          /*ulEthGetRecvLen(), cmd.st.pkt_type, cmd.st.dim_x, cmd.st.dim_y);*/
-        uint32_t data[4];
+        uint32_t data[5];
 
-        for (size_t val=0; val<4; val++) {
+        dbg("\n\rData=");
+        for (size_t val=0; val<5; val++) {
           data[val] = ulEthGetRecvData();
-          dbg("Data[%d]=%x", val, data[val]);
+          dbg("_%d_", data[val]);
         }
-
-        vIRQSetMaskSingle(irqMASK_ETH_RECV);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);
-
+        /*vIRQSetMaskSingle(irqMASK_ETH_RECV);*/
+        /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
         vEthClearInfifoPtr();
 
         xQueueSendFromISR(xStartFetchImgQ, &cmd_type, &xHigherPriorityTaskWoken);

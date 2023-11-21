@@ -34,3 +34,6 @@
 [submodule "sw/multiplication/slave/libs/FreeRTOS-Kernel"]
 	path = sw/multiplication/slave/libs/FreeRTOS-Kernel
 	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git
+[submodule "sw/filter/master_single/libs/FreeRTOS-Kernel_latest"]
+	path = sw/filter/master_single/libs/FreeRTOS-Kernel_latest
+	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git

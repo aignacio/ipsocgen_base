@@ -21,12 +21,16 @@
 
 #define FPGA_IP         "192.168.1.130"
 #define FPGA_PORT       1234
-#define PACKET_SIZE     1024
+#define BLOCK_SIZE      1 // Multiples of 1KiB
+#define FILTER_TYPE     0x1
+#define CMD_SIZE        5
+#define CAM_WIDTH       320 //640
+#define CAM_HEIGHT      240 //480
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
 int    sockfd;
-bool stop = false;
+bool   stop = false;
 
 using namespace std;
 using namespace cv;
@@ -104,48 +108,96 @@ public:
 TSQueue<cv::Mat> ThreadSafeQueue(100);
 
 void streamVideo() {
-  VideoCapture cap(0); // Open the default camera
-  cap.set(CAP_PROP_FRAME_WIDTH, 640);
-  cap.set(CAP_PROP_FRAME_HEIGHT, 480);
+  cv::VideoCapture inputVideo; //to open video flux
+  inputVideo.open(0);
+  int frame_width = CAM_WIDTH; //inputVideo.get(cv::CAP_PROP_FRAME_WIDTH);
+  int frame_height = CAM_HEIGHT; //inputVideo.get(cv::CAP_PROP_FRAME_HEIGHT);
+  int fps = inputVideo.get(cv::CAP_PROP_FPS);
 
-  if (!cap.isOpened()) {
-    cout << "Error opening video stream or file" << endl;
-    return;
-  }
-  namedWindow("Webcam Stream - 640x480 - 300KiB", WINDOW_NORMAL);
+  cv::VideoWriter outputVideo("appsrc ! videoconvert ! video/x-raw ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port=5000",cv::CAP_GSTREAMER,0,fps,cv::Size(frame_width,frame_height), true);
 
-  while (!stop) {
-    Mat frame;
-    cap >> frame; // Capture frame-by-frame
-
-    if (frame.empty())
+  while (inputVideo.grab()) {
+    cv::Mat image, imageCopy;
+    inputVideo.retrieve(image);
+    cv::resize(image, imageCopy, cv::Size(frame_width, frame_height)); // Resize image to 320x240                                                                                
+    outputVideo.write(imageCopy);
+    ThreadSafeQueue.push(imageCopy);
+    cv::imshow("Webcam Stream - 640x480 - 300KiB", imageCopy);
+    char key = (char) cv::waitKey(10);
+    if (key == 27)
       break;
+    }
 
-    imshow("Webcam Stream - 640x480 - 300KiB", frame); // Display the resulting frame
-    ThreadSafeQueue.push(frame);
-    if ((waitKey(1) == 27) || (waitKey(1) == 113)) // Press ESC to stop streaming
-      break;
+    inputVideo.release();
+    outputVideo.release();
+}
+
+void convertToNetworkOrder(uint32_t* array, size_t size) {
+  for (size_t i = 0; i < size; ++i) {
+    array[i] = htonl(array[i]);
+  }
+}
+
+std::vector<std::vector<unsigned char>> splitImageIntoPackets(const cv::Mat& image) {
+  std::vector<std::vector<unsigned char>> packets;
+  int totalPackets = (image.rows * image.cols * image.channels()) / BLOCK_SIZE*1024;
+
+  for (int packetIndex = 0; packetIndex < totalPackets; packetIndex++) {
+    std::vector<unsigned char> packet(BLOCK_SIZE);
+    int startIndex = packetIndex * BLOCK_SIZE;
+    int endIndex = startIndex + BLOCK_SIZE;
+
+    int packetOffset = 0;
+    for (int i = startIndex; i < endIndex; i++) {
+      int row = i / (image.cols * image.channels());
+      int col = (i % (image.cols * image.channels())) / image.channels();
+      int channel = i % image.channels();
+      packet[packetOffset++] = image.at<cv::Vec3b>(row, col)[channel];
+    }
+
+    packets.push_back(packet);
   }
 
-  cap.release(); // Release the camera
-  destroyAllWindows();
+  return packets;
+}
+
+void sendCmdFilter(uint16_t x, uint16_t y, uint16_t block_size){
+  struct sockaddr_in clientAddress;
+  const char* ackFPGA = "\xaa\xbb\xcc\xdd";  // Hexadecimal value to compare against
+                              // Operation type | Width image | Height image | (x,y) | block size
+  uint32_t filterReqHW[CMD_SIZE] = {FILTER_TYPE, CAM_WIDTH, CAM_HEIGHT, (x<<16) | y, block_size};
+  
+  //convertToNetworkOrder(filterReqHW, 4);  
+  sendto(sockfd, &filterReqHW, sizeof(filterReqHW), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+  socklen_t clientAddressLength = sizeof(clientAddress);
+
+  char buffer[4];
+  int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
+  if (bytesRead == -1)
+    std::cerr << "Failed to receive data!" << endl;
+  if (memcmp(buffer, ackFPGA, sizeof(buffer)) != 0)
+    std::cerr << "ACK not received!" << endl;
 }
 
 void plotFilter() {
-  const char* ackFPGA = "\xaa\xbb\xcc\xdd";  // Hexadecimal value to compare against
-  uint32_t histReqHW = htonl(0x1f0dd9f);
-  struct sockaddr_in clientAddress;
   unsigned long frame = 0;
 
-  cout << "Frame Count, Hist. Correlation, Time per frame FPGA, Time per frame OpenCV " << endl;
+  //cout << "Frame Count, Hist. Correlation, Time per frame FPGA, Time per frame OpenCV " << endl;
   while (!stop) {
     Mat image = ThreadSafeQueue.pop();
     cvtColor(image, image, COLOR_BGR2GRAY);
 
-    char buffer[4];
+    // Send the Histogram cmd to the FPGA
+    //measureElapsedTime(true);
     //measureElapsedTime();
+    sendCmdFilter(0, 0, frame);
+    //for ()
+    //vector<vector<unsigned char>> udpPkts = splitImageIntoPackets(image);
+
+    cout << "Frame counter: " << frame++ << std::endl;
+    cout << "Size: " << image.size()  << std::endl;
     // Display the histogram plot
-    cv::imshow("Histogram - Nexys Video (FPGA)", image);
+    //cv::imshow("Histogram - Nexys Video (FPGA)", image);
   }
   destroyAllWindows();
 }

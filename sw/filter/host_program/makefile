@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -Wall -I/usr/local/include/opencv4/ \
+CFLAGS = -g -std=c++11 -Wall -I/usr/local/include/opencv4/ \
          -I/home/aignacio/projects/matplotlib-cpp \
          -I/usr/include/python3.10 \
          -I/home/aignacio/projects/cv-plot

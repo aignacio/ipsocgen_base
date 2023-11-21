@@ -21,7 +21,7 @@
 `define RAVENOC_BASE_ADDR     	'h64000
 `define N_VIRT_CHN            	1
 `define RD_AXI_BFF(x)         	x<=2?2:4
-`define NUM_TILES             	9
+`define NUM_TILES             	4
 
 // AXI Configuration
 `define AXI_WR_BFF_BASE_ADDR  	`RAVENOC_BASE_ADDR+'h1000
