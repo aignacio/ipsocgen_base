@@ -9,286 +9,106 @@
 #include <semphr.h>
 
 #include "riscv_csr_encoding.h"
+#include "tile_0.h"
 #include "master_tile.h"
 #include "uart.h"
 #include "irq_ctrl.h"
-#include "ravenoc.h"
 #include "dma.h"
 #include "eth.h"
 #include "mpsoc_types.h"
 
+TaskHandle_t xHandleProcCmd;
+TaskHandle_t xHandleProcImg;
+
+MasterType_t xMasterCurStatus = MASTER_STATUS_IDLE;
+
 static SemaphoreHandle_t xDMAMutex;
 static SemaphoreHandle_t xHistogramMutex;
-static SemaphoreHandle_t xSlaveTileResMutex;
 
-static QueueHandle_t xStartFetchImgQ;
+static QueueHandle_t xCmdRecvQ;
 static QueueHandle_t xDataReqQ;
 static QueueHandle_t xEthSentQ;
 static QueueHandle_t xDMADoneQ;
-static QueueHandle_t xNoCPktFromSlavesQ;
+static QueueHandle_t xProcFilterQ;
+static QueueHandle_t xProcDoneQ;
 
-static uint8_t  ucSlaveTileResVec [masterNOC_TOTAL_TILES];
-static uint32_t ucGlobalHistogram [256]; // Store the global histogram
-static uint16_t ucDataBuffer [256]; // Store the partial histogram from the slave tiles
-static uint8_t  ucDataEthBuffer [1024]; // Used only when local processing without slave tiles
+uint8_t  ucImgSegment[KERNEL_SIZE][SEGMENT_SIZE];
+uint8_t  ucIndexSeg = 0;
+uint8_t  ucImgFiltered[KERNEL_SIZE][SEGMENT_SIZE];
+uint8_t  ucIndexFilter = 0;
 
-TaskHandle_t xHandleCopyImg;
-TaskHandle_t xHandleRecvData;
+uint32_t ulImageWidth = 0;
+uint32_t ulImageHeight = 0;
 
-MasterType_t xMasterCurStatus = MASTER_STATUS_IDLE;
-uint32_t     ulNumPixels = 0;
-uint32_t     ulTmp;
+uint32_t ulRowCount = 0;
 
-static uint8_t ucprvGetFreeSlaveTile (void) {
-  uint8_t ucAllSlavesBusy = 1;
-  uint8_t ucFreeSlaveIndex = 0;
-  uint32_t ulTimeoutSlaveCnt = 0;
-
-  while (ucAllSlavesBusy) {
-    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
-      if (ucSlaveTileResVec[i] == 1) {
-        ucFreeSlaveIndex = i;
-        ucAllSlavesBusy = 0;
-        break;
-      }
-    }
-    // REMOVE THIS CODE WHEN FINAL - BELOW
-    /*if (ucSlaveTileResVec[1] == 1) {*/
-      /*ucFreeSlaveIndex = 1;*/
-      /*ucAllSlavesBusy = 0;*/
-      /*break;*/
-    /*}*/
-    /*if (ucSlaveTileResVec[2] == 1) {*/
-      /*ucFreeSlaveIndex = 2;*/
-      /*ucAllSlavesBusy = 0;*/
-      /*break;*/
-    /*}*/
-    // REMOVE THIS CODE WHEN FINAL - ABOVE
-    ulTimeoutSlaveCnt++;
-    if (ulTimeoutSlaveCnt > 100000) {
-      masterCRASH_DBG_INFO("[TIMEOUT] No slaves available");
-    }
+// Prepare the DMA descriptor 0 to receive data from Eth
+DMADesc_t xDMACopyFilt = {
+    .SrcAddr  = (uint32_t*)0,
+    .DstAddr  = (uint32_t*)ethOUTFIFO_ADDR,
+    .NumBytes = (SEGMENT_SIZE),
+    .Cfg = {
+      .WrMode = DMA_MODE_FIXED,
+      .RdMode = DMA_MODE_INCR,
+      .Enable = DMA_MODE_ENABLE
   }
+};
 
-  xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
-  ucSlaveTileResVec[ucFreeSlaveIndex] = 0;
-  xSemaphoreGive(xSlaveTileResMutex);
+int main( void );
 
-  if (ucFreeSlaveIndex == 0) {
-    masterCRASH_DBG_INFO("Master cannot be a valid free resource!");
-  }
-
-  return ucFreeSlaveIndex;
-}
-
-static void vprvSendHistEth(void) {
-  // Wait till all slaves are available
-  uint8_t ucAllAvail = 0;
-
-  while (ucAllAvail == 0) {
-    ucAllAvail = 1;
-    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
-      if (ucSlaveTileResVec[i] == 0) {
-        ucAllAvail = 0;
-      }
-    }
-  }
-
-  // Copy the histogram to the Eth INFIFO
-  vEthSetSendLenCfg(1024);
+static inline void vprvSendHeartbeat (TickType_t tick) {
+  uint8_t* tickPtr = (uint8_t*)&tick;
+  uint8_t payload;
 
   vEthClearOutfifoPtr();
-  for (uint16_t i=0; i<256; i++) {
-    vEthWriteOutfifoWData(ucGlobalHistogram[i]);
-  }
+  vEthWriteOutfifoData(tickPtr, 4);
   vEthSendPkt();
-
-  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &ucAllAvail, pdMS_TO_TICKS(500)),"Send UDP Pkt");
-  vEthSetSendLenCfg(4);
+  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &payload, pdMS_TO_TICKS(500)),"Send UDP Pkt");
 }
 
-static void ucprvSetFreeSlaveTile (uint8_t index) {
-  xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
-  ucSlaveTileResVec[index] = 1;
-  xSemaphoreGive(xSlaveTileResMutex);
+static inline void vprvSendRowFilter (void) {
+  uint8_t dummy;
+
+  vEthClearOutfifoPtr();
+  vEthSetSendLenCfg(SEGMENT_SIZE);
+  /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
+  xDMACopyFilt.SrcAddr = (uint32_t*)ucImgFiltered[ucIndexFilter];
+  vDMASetDescCfg(1, xDMACopyFilt);
+  vDMASetDescGo(1);
+  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &dummy, pdMS_TO_TICKS(500)), "TO DMA to copy");
+  /*xSemaphoreGive(xDMAMutex);*/
+    
+  if (ucIndexFilter == 2){
+    ucIndexFilter = 0;
+  }
+  else {
+    ucIndexFilter += 1;
+  }
+  vEthSendPkt();
+  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &dummy, pdMS_TO_TICKS(500)),"Send UDP Pkt");
 }
 
 static inline void vprvSendAckEth (void) {
   uint8_t payload[4] = {0xAA, 0xBB, 0xCC, 0xDD};
 
+  vEthSetSendLenCfg(4);
   vEthClearOutfifoPtr();
   vEthWriteOutfifoData((uint8_t*)&payload, 4);
   vEthSendPkt();
   masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &payload, pdMS_TO_TICKS(500)),"Send UDP Pkt");
 }
 
-static void vprvCalcHist (uint32_t pixels_4) {
-  uint8_t pixel = 0;
-
-  xSemaphoreTake(xHistogramMutex, portMAX_DELAY);
-  for (size_t i=0; i<4; i++) {
-    pixel = ((pixels_4 >> 8*i) & 0xFF);
-    ucGlobalHistogram[pixel]++;
-  }
-  xSemaphoreGive(xHistogramMutex);
-}
-
-static void vprvCalcHistSlave (void) {
-  xSemaphoreTake(xHistogramMutex, portMAX_DELAY);
-
-  for (size_t i=0; i<256; i++) {
-    ucGlobalHistogram[i] += ucDataBuffer[i];
-  }
-
-  xSemaphoreGive(xHistogramMutex);
-}
-
-static void vprvSendSegSlave (uint8_t slave_index) {
-  uint8_t ucBuffer8;
-
-  // All packets are 1KiB
-  vRaveNoCSendNoCMsg(slave_index, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM);
-  /*dbg("\n\r%d - %x",slave_index, ulRaveNoCGetHeader(slave_index, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM));*/
-  // Wait to obtain access to the DMA peripheral
-  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
-  // Launch the DMA for descriptor 0 only
-  vDMASetDescGo(0);
-  //Wait DMA completion
-  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
-  // Release the mutex
-  xSemaphoreGive(xDMAMutex);
-
-  // Clean the ptr to zero the INFIFO
-  vEthClearInfifoPtr();
-}
-
-static void vprvProcLocal (void) {
-  uint8_t ucBuffer8;
-  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
-  // Launch the DMA for descriptor 0 only
-  vDMASetDescGo(0);
-  //Wait DMA completion
-  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
-  // Release the mutex
-  xSemaphoreGive(xDMAMutex);
-
-  vEthClearInfifoPtr();
-
-  for (size_t i=0; i<1024; i++) {
-    ucGlobalHistogram[ucDataEthBuffer[i]]++;
-  }
-}
-
-static void vprvCopyImg (void *pvParameters) {
+static void vprvProcCmd (void *pvParameters) {
   CmdType_t cmd;
   uint32_t  ulBuffer32;
-  TickType_t start = xTaskGetTickCount(), stop;
-  TickType_t start_recv = xTaskGetTickCount(), stop_recv;
-  TickType_t start_proc_slave = xTaskGetTickCount(), stop_proc_slave;
+  uint32_t  ulTest;
+  uint8_t   ucBuffer8 = 0;
 
-  // Prepare the DMA descriptor 0 to send the pkt
-  DMADesc_t xDMACopyDesc = {
+  // Prepare the DMA descriptor 0 to receive data from Eth
+  DMADesc_t xDMACopySeg = {
     .SrcAddr  = (uint32_t*)ethINFIFO_ADDR,
-    .DstAddr  = (uint32_t*)ravenocWR_BUFFER,
-    .NumBytes = (masterETH_PKT_SIZE_BYTES-4),
-    .Cfg = {
-      .WrMode = DMA_MODE_FIXED,
-      .RdMode = DMA_MODE_FIXED,
-      .Enable = DMA_MODE_ENABLE
-    }
-  };
-
-  /*DMADesc_t xDMACopyDesc = {*/
-    /*.SrcAddr  = (uint32_t*)ethINFIFO_ADDR,*/
-    /*.DstAddr  = (uint32_t*)&ucDataEthBuffer,*/
-    /*.NumBytes = (masterETH_PKT_SIZE_BYTES),*/
-    /*.Cfg = {*/
-      /*.WrMode = DMA_MODE_INCR,*/
-      /*.RdMode = DMA_MODE_FIXED,*/
-      /*.Enable = DMA_MODE_ENABLE*/
-    /*}*/
-  /*};*/
-
-  // Programming the first descriptor
-  vDMASetDescCfg(0, xDMACopyDesc);
-
-  for (;;) {
-    //masterTIMEOUT_INFO(xQueueReceive(xStartFetchImgQ, &cmd, pdMS_TO_TICKS(10000)), "Receive cmd");
-    xQueueReceive(xStartFetchImgQ, &cmd, portMAX_DELAY);
-    switch (cmd) {
-      case CMD_FILTER:
-        vprvSendAckEth();
-        break;
-      case CMD_NONE:
-        dbg("\n\r[CMD] None");
-        break;
-      case CMD_GET_RESULT:
-        vprvSendHistEth();
-        vIRQSetMaskSingle(irqMASK_ETH_RECV_FULL);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV);
-        break;
-      case CMD_HISTOGRAM:
-        /*dbg("\n\r[CMD] Histogram - Pixels - %d", ulNumPixels);*/
-        xMasterCurStatus = MASTER_STATUS_RUNNING;
-
-        // zero the main histogram vector
-        for (size_t i=0; i<256; i++)
-          ucGlobalHistogram[i] = 0;
-
-        vprvSendAckEth();
-
-        start = xTaskGetTickCount();
-
-        while (ulNumPixels > 0) {
-          /*dbg("\n\r%d", ulNumPixels);*/
-
-          // Wait to receive image segment of 1KiB
-          start_recv = xTaskGetTickCount();
-          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "Receive frame");
-
-          // --> Ethernet has 1KiB image available
-          // Lets compute the histogram of the first 4x pixels (bytes) because
-          // the maximum NoC packet is 1KiB and we have to subtract 4b for the pkt header
-          vprvCalcHist(ulEthGetRecvData());
-
-          // Get the next available slave tile, program the DMA
-          // and send the data over the NoC
-          vprvSendSegSlave(ucprvGetFreeSlaveTile());
-          stop_recv = xTaskGetTickCount();
-          /*vprvProcLocal();*/
-
-          ulNumPixels -= ulBuffer32;
-          // Send request of another 1KiB
-          if (ulNumPixels > 0) {
-            vprvSendAckEth();
-          }
-        }
-
-        /*stop = xTaskGetTickCount();*/
-        /*dbg("\n\r%d",stop-start);*/
-
-        vIRQSetMaskSingle(irqMASK_ETH_RECV_FULL);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV);
-        xMasterCurStatus = MASTER_STATUS_IDLE;
-        vprvSendAckEth();
-        vprvSendHistEth();
-
-        stop = xTaskGetTickCount();
-        dbg("Frame %d ms \n\r",((stop-start) << 1));
-        break;
-      default:
-        break;
-    }
-  }
-}
-
-static void vprvRecvData (void *pvParameters) {
-  uint8_t ucSizeSeg;
-
-  DMADesc_t xDMARecvData = {
-    .SrcAddr  = (uint32_t*)ravenocRD_BUFFER,
-    .DstAddr  = (uint32_t*)&ucDataBuffer,
-    .NumBytes = 0,
+    .DstAddr  = (uint32_t*)ucImgSegment[ucIndexSeg],
+    .NumBytes = (SEGMENT_SIZE),
     .Cfg = {
       .WrMode = DMA_MODE_INCR,
       .RdMode = DMA_MODE_FIXED,
@@ -296,51 +116,117 @@ static void vprvRecvData (void *pvParameters) {
     }
   };
 
-  // Program the descriptor 1 to copy data from the NoC to the DRAM
-  vDMASetDescCfg(1, xDMARecvData);
+  // Programming the first descriptor
+  vDMASetDescCfg(0, xDMACopySeg);
 
   for (;;) {
-    xQueueReceive(xNoCPktFromSlavesQ, &ucSizeSeg, portMAX_DELAY);
-    uint8_t xSlaveFree = (ulRaveNoCGetNoCData() & 0xFF);
+    xQueueReceive(xCmdRecvQ, &cmd, portMAX_DELAY);
+    switch (cmd) {
+      case CMD_FILTER:
+        xMasterCurStatus = MASTER_STATUS_RUNNING;
+        /*dbg("\n\r[CMD] Filter request received - %d x %d ", ulImageWidth, ulImageHeight);*/
+        vprvSendAckEth();
+ 
+        // First row
+        masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv first row");
+        vDMASetDescGo(0);
+        masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ulTest, pdMS_TO_TICKS(500)), "TO DMA to copy");
+        vEthClearInfifoPtr();
+        vprvSendAckEth();      
+        ucIndexSeg =+1;
 
-    xDMARecvData.NumBytes = 4*(ucSizeSeg);
-
-    xSemaphoreTake(xDMAMutex, portMAX_DELAY);
-    vDMASetDescCfg(1, xDMARecvData);
-    vDMASetDescGo(1);
-    masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucSizeSeg, pdMS_TO_TICKS(500)), "Timeout DMA");
-    vRaveNoCIRQAck();
-    // Sum the histogram
-    vprvCalcHistSlave();
-    xSemaphoreGive(xDMAMutex);
-    // Free-up the slave availability
-    /*dbg("\n\rxSlaveFree %d", xSlaveFree);*/
-    ucprvSetFreeSlaveTile(xSlaveFree);
+        for (size_t i=0; i<(IMAGE_HEIGHT); i++) {
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv row row");
+          xDMACopySeg.DstAddr = (uint32_t*)ucImgSegment[ucIndexSeg];
+          /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
+          vDMASetDescCfg(0, xDMACopySeg);
+          vDMASetDescGo(0);
+          masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ulTest, pdMS_TO_TICKS(500)), "TO DMA to copy");
+          /*xSemaphoreGive(xDMAMutex);*/
+          if (ucIndexSeg == 2) {
+            ucIndexSeg = 0;
+          }
+          else {
+            ucIndexSeg += 1;
+          }
+          vEthClearInfifoPtr();
+          masterTIMEOUT_INFO(xQueueSend(xProcFilterQ, &ulRowCount, pdMS_TO_TICKS(500)), "TO to send next to proc");
+          masterTIMEOUT_INFO(xQueueReceive(xProcDoneQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv proc done");
+          vprvSendRowFilter();
+        }
+        /*dbg(" -> Done"); */
+        ucIndexSeg = 0;
+        xMasterCurStatus = MASTER_STATUS_IDLE;
+        break;
+      case CMD_NONE:
+        dbg("\n\r[CMD] None");
+        break;
+      case CMD_TEST:
+        dbg("\n\r[CMD] CMD_TEST");
+        vprvSendHeartbeat(xTaskGetTickCount());
+        break;
+      case CMD_HISTOGRAM:
+        xMasterCurStatus = MASTER_STATUS_RUNNING;
+        vprvSendAckEth();
+        xMasterCurStatus = MASTER_STATUS_IDLE;
+        vprvSendAckEth();
+        break;
+      default:
+        dbg("\n\r[CMD] Unknown!");
+        break;
+    }
   }
 }
 
-static void vprvWatchDog (void *pvParameters) {
-  for (;;){
+static void vprvProcImg (void *pvParameters) {
+  uint32_t ulBuffer32 = 0;
+  uint16_t centerRow = 0;
 
-    /*dbg("\n\rR/W -> IN=%d/%d - OUT=%d/%d", xEthInfifoPtr().Read, xEthInfifoPtr().Write,*/
-                                           /*xEthOutfifoPtr().Read, xEthOutfifoPtr().Write);*/
-    dbg("\n\r%d-",xTaskGetTickCount());
-    for (size_t i=0; i<masterNOC_TOTAL_TILES; i++)
-      dbg("%d", ucSlaveTileResVec[i]);
 
-    /*TaskStatus_t xTaskDetailsRecvData, xTaskDetailsCopyImg;*/
-    /*vTaskGetInfo(xHandleRecvData, &xTaskDetailsRecvData, pdTRUE, eInvalid);*/
-    /*vTaskGetInfo(xHandleCopyImg, &xTaskDetailsCopyImg, pdTRUE, eInvalid);*/
+  // Programming the first descriptor
+  /*vDMASetDescCfg(1, xDMACopyFilt);*/
 
-    /*dbg("\n\r---Tasks---");*/
-    /*dbg("\n\r%s - %d - %d",xTaskDetailsRecvData.pcTaskName,*/
-                           /*xTaskDetailsRecvData.eCurrentState,*/
-                           /*xTaskDetailsRecvData.usStackHighWaterMark);*/
-    /*dbg("\n\r%s - %d - %d",xTaskDetailsCopyImg.pcTaskName,*/
-                           /*xTaskDetailsCopyImg.eCurrentState,*/
-                           /*xTaskDetailsCopyImg.usStackHighWaterMark);*/
+  for (;;) {
+    xQueueReceive(xProcFilterQ, &ulBuffer32, portMAX_DELAY);
+    
+    /*centerRow = ulRowCount%3;*/
+    
+    // Copy the row info first
+    /*for (size_t i=0; i<4; i++) {*/
+      /*ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];*/
+    /*}*/
+    
+    /*for (size_t pixel=4; pixel<(IMAGE_WIDTH+4); pixel++) {*/
+      /*if (ulRowCount == 0) {*/
+        /*if (pixel == 4) {*/
+          
+        /*}*/
+        /*ucImgFiltered[ucIndexFilter][pixel] = sum/9;*/
+      /*}*/
+      /*else if (ulRowCount == (IMAGE_HEIGHT-1)){*/
+      
+      /*}*/
+      /*else {*/
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+      /*}*/
+    /*}*/
+
+    /*if (ulRowCount == (IMAGE_HEIGHT-1)) {*/
+      /*ulRowCount = 0;*/
+    /*}*/
+    /*else {*/
+      /*ulRowCount += 1;*/
+    /*}*/
+    for (size_t i=0; i<4; i++) {
+      ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];
+    }
+
+    for (size_t i=4; i<SEGMENT_SIZE; i++) {
+      ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];
+    }
+
+    // Send the current row filtered
+    masterTIMEOUT_INFO(xQueueSend(xProcDoneQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to send done hist!");
   }
 }
 
@@ -363,7 +249,7 @@ static void vprvSetEth (void) {
     /*.MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}*/
     .MACAddr.bytes    = {0x00, 0x00, 0xbc, 0x09, 0x1b, 0x98, 0x12, 0x28}
   };
-
+  
   EthFilterCfg_t xFilterCfg = {
     .Enable  = 1,
     .UDPPort = 1234,
@@ -373,23 +259,18 @@ static void vprvSetEth (void) {
   vEthSetLocalCfg(xLocalCfg);
   vEthSetSendCfg(xSendCfg);
   vEthSetFilter(xFilterCfg);
+
+  dbg("Ethernet Configured");
 }
 
-int main (void) {
+int main(void){
   BaseType_t xReturned = pdFALSE;
 
   // Initialize the ETHERNET
   vprvSetEth();
 
-  // RaveNoC
-  // Initialise NoC & set IRQ to PULSE HEAD Flit type
-  vRaveNoCInitNoCLUT();
-  vRaveNoCSetIRQMux(RAVENOC_MUX_PULSE_HEAD_FLIT);
-  vRaveNoCPrintNoCSettings();
-
   // IRQs
   // Enable IRQs
-  vIRQClearMaskSingle(irqMASK_RAVENOC_PKT);
   vIRQClearMaskSingle(irqMASK_DMA_0_ERROR);
   vIRQClearMaskSingle(irqMASK_DMA_0_DONE);
   vIRQClearMaskSingle(irqMASK_ETH_RECV);
@@ -402,94 +283,91 @@ int main (void) {
   // Initialize the mutex
   xDMAMutex = xSemaphoreCreateMutex();
   xHistogramMutex = xSemaphoreCreateMutex();
-  xSlaveTileResMutex = xSemaphoreCreateMutex();
 
-  if ((xDMAMutex == NULL) || (xHistogramMutex == NULL) || (xSlaveTileResMutex == NULL)) {
+  if ((xDMAMutex == NULL) || (xHistogramMutex == NULL)) {
     masterCRASH_DBG_INFO("Cannot create the mutexes");
   }
 
-  // Initialize array of slaves availability
-  for (size_t i=0; i<masterNOC_TOTAL_TILES; i++)
-    ucSlaveTileResVec[i] = 1;
-
-  xDataReqQ = xQueueCreate(2, sizeof(uint32_t));
-  xDMADoneQ = xQueueCreate(1, sizeof(uint32_t));
-  xEthSentQ = xQueueCreate(1, sizeof(uint8_t));
-  xStartFetchImgQ = xQueueCreate(1, sizeof(CmdType_t));
-  xNoCPktFromSlavesQ = xQueueCreate(1, sizeof(uint8_t));
-
-  /*xReturned = xTaskCreate(*/
-    /*vprvWatchDog,*/
-    /*"Watchdog",*/
-    /*configMINIMAL_STACK_SIZE*2U,*/
-    /*NULL,*/
-    /*tskIDLE_PRIORITY+1,*/
-    /*NULL);*/
-  /*masterCHECK_TASK(xReturned);*/
+  xDataReqQ  = xQueueCreate(2, sizeof(uint32_t));
+  xDMADoneQ  = xQueueCreate(1, sizeof(uint32_t));
+  xEthSentQ  = xQueueCreate(1, sizeof(uint8_t));
+  xCmdRecvQ  = xQueueCreate(1, sizeof(CmdType_t));
+  xProcFilterQ = xQueueCreate(1, sizeof(uint32_t));
+  xProcDoneQ = xQueueCreate(1, sizeof(uint8_t));
 
   xReturned = xTaskCreate(
-    vprvRecvData,
-    "Recv data",
+    vprvProcCmd,
+    "Process Commands",
     configMINIMAL_STACK_SIZE*2U,
     NULL,
     tskIDLE_PRIORITY+1,
-    &xHandleRecvData);
+    &xHandleProcCmd);
   masterCHECK_TASK(xReturned);
 
   xReturned = xTaskCreate(
-    vprvCopyImg,
-    "Copy image",
+    vprvProcImg,
+    "Process Images",
     configMINIMAL_STACK_SIZE*2U,
     NULL,
     tskIDLE_PRIORITY+1,
-    &xHandleCopyImg);
+    &xHandleProcImg);
   masterCHECK_TASK(xReturned);
 
   vTaskStartScheduler();
 
   // Should never reach here...
   for(;;);
+
 }
 
 void vSystemIrqHandler(uint32_t ulMcause){
   IRQEncoding_t xIRQID = xIRQGetIDFifo();
   uint8_t       ucBuffer8 = 0x00;
+  uint32_t      ucBuffer32 = 0x00;
   BaseType_t    xHigherPriorityTaskWoken;
-
   switch (xIRQID) {
-    case(IRQ_RAVENOC_PKT):
-      ucBuffer8 = ucRaveNoCGetNoCPktSize();
-      xQueueSendFromISR(xNoCPktFromSlavesQ, &ucBuffer8, &xHigherPriorityTaskWoken);
-      if(xHigherPriorityTaskWoken == pdTRUE){
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-      }
-
-      break;
     case(IRQ_DMA_0_DONE):
       // Clear the done IRQ
       vDMAClearGo();
-      xQueueSendFromISR(xDMADoneQ, &ucBuffer8, &xHigherPriorityTaskWoken);
+      xQueueSendFromISR(xDMADoneQ, &ucBuffer32, &xHigherPriorityTaskWoken);
       if(xHigherPriorityTaskWoken == pdTRUE){
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
       }
       break;
     case(IRQ_ETH_RECV):
       if (xMasterCurStatus == MASTER_STATUS_IDLE) {
-        CmdType_t cmd_type;
+        uint32_t buffer[3];
 
-        cmd_type = CMD_FILTER;
-        uint32_t data[5];
-
-        dbg("\n\rData=");
-        for (size_t val=0; val<5; val++) {
-          data[val] = ulEthGetRecvData();
-          dbg("_%d_", data[val]);
+        for (size_t i=0; i<3; i++) {
+          buffer[i] = ulEthGetRecvData();
         }
-        /*vIRQSetMaskSingle(irqMASK_ETH_RECV);*/
-        /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
+
+        CmdType_t cmd_type = buffer[0];
+
+        ulImageWidth = buffer[1];
+        ulImageHeight = buffer[2];
+
+        switch(cmd_type) {
+          case CMD_TEST:
+            break;
+          case CMD_FILTER:
+            /*vIRQSetMaskSingle(irqMASK_ETH_RECV);*/
+            /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
+            break;
+          default:
+            dbg("CMD unknown");
+            break;
+        }
         vEthClearInfifoPtr();
 
-        xQueueSendFromISR(xStartFetchImgQ, &cmd_type, &xHigherPriorityTaskWoken);
+        xQueueSendFromISR(xCmdRecvQ, &cmd_type, &xHigherPriorityTaskWoken);
+        if(xHigherPriorityTaskWoken == pdTRUE){
+          portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
+      }
+      else { 
+        uint32_t ulLen = ulEthGetRecvLen();
+        xQueueSendFromISR(xDataReqQ, &ulLen, &xHigherPriorityTaskWoken);
         if(xHigherPriorityTaskWoken == pdTRUE){
           portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
@@ -511,11 +389,11 @@ void vSystemIrqHandler(uint32_t ulMcause){
       }
       vEthClearIRQs();
       break;
-      break;
     default:
       dbg("\n\rMcause: %d", ulMcause);
       dbg("\n\rIRQ ID: %d", xIRQID);
       masterCRASH_DBG_INFO("Unexpected IRQ");
       break;
   }
+
 }

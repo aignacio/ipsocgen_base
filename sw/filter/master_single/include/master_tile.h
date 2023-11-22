@@ -27,6 +27,10 @@
 #define masterHW_CLK_SPEED_HZ         50000000
 #define masterUART_BAUD_RATE          115200
 #define masterETH_PKT_SIZE_BYTES      1024
+#define IMAGE_WIDTH                   320
+#define IMAGE_HEIGHT                  240
+#define KERNEL_SIZE                   3
+#define SEGMENT_SIZE                  (IMAGE_WIDTH+4)
 
 // [Macro functions]
 #define masterCHECK_TASK(X)           if(X == pdFALSE) {                            \

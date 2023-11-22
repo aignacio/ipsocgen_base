@@ -167,7 +167,7 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
   socklen_t clientAddressLength = sizeof(clientAddress);
   
   if (wait_answer == true) { 
-    cout << "Waiting to receive row from FPGA..." << std::endl;
+    cout << "Waiting to receive something from FPGA...";
     int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
     cout << "Received" << std::endl;
     if (bytesRead == -1)
@@ -223,7 +223,7 @@ Mat sendImgSegments(const Mat& image) {
   for (size_t i=0; i<(KERNEL_SIZE-2); i++){
     bootstrap_rows += 1;
     cout << "Sending segment[" << i << "] of the image" << endl;
-    sendViaUDP(rows_split[i], false);
+    sendViaUDP(rows_split[i], true);
   }
   
   std::vector<unsigned char> msg = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -276,7 +276,7 @@ void plotFilter() {
 
     cout << "Frame counter: " << frame++ << " Size: " << image.size() << std::endl;
     // Display the histogram plot
-    cv::imshow("Histogram - Nexys Video (FPGA)", image_filtered);
+    cv::imshow("Filtered Image - Nexys Video (FPGA)", image_filtered);
   }
   destroyAllWindows();
 }
