@@ -19,13 +19,16 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+#define STR_HELPER(x)   #x
+#define STR(x)          STR_HELPER(x)
 #define FPGA_IP         "192.168.1.130"
 #define FPGA_PORT       1234
 #define BLOCK_SIZE      1 // Multiples of 1KiB
 #define FILTER_TYPE     0x1
-#define CMD_SIZE        5
+#define CMD_SIZE        3
 #define CAM_WIDTH       320 //640
 #define CAM_HEIGHT      240 //480
+#define KERNEL_SIZE     3
 
 struct sockaddr_in serverAddress;
 struct sockaddr_in localAddress;
@@ -122,7 +125,7 @@ void streamVideo() {
     cv::resize(image, imageCopy, cv::Size(frame_width, frame_height)); // Resize image to 320x240                                                                                
     outputVideo.write(imageCopy);
     ThreadSafeQueue.push(imageCopy);
-    cv::imshow("Webcam Stream - 640x480 - 300KiB", imageCopy);
+    cv::imshow("Webcam Stream " STR(CAM_WIDTH) "x" STR(CAM_HEIGHT), imageCopy);
     char key = (char) cv::waitKey(10);
     if (key == 27)
       break;
@@ -132,42 +135,120 @@ void streamVideo() {
     outputVideo.release();
 }
 
-void convertToNetworkOrder(uint32_t* array, size_t size) {
-  for (size_t i = 0; i < size; ++i) {
-    array[i] = htonl(array[i]);
-  }
-}
+cv::Mat createImageFromRows(const std::vector<std::vector<unsigned char>>& rows_split, int imageWidth, int imageHeight) {
+  cv::Mat image(imageHeight, imageWidth, CV_8U);
 
-std::vector<std::vector<unsigned char>> splitImageIntoPackets(const cv::Mat& image) {
-  std::vector<std::vector<unsigned char>> packets;
-  int totalPackets = (image.rows * image.cols * image.channels()) / BLOCK_SIZE*1024;
-
-  for (int packetIndex = 0; packetIndex < totalPackets; packetIndex++) {
-    std::vector<unsigned char> packet(BLOCK_SIZE);
-    int startIndex = packetIndex * BLOCK_SIZE;
-    int endIndex = startIndex + BLOCK_SIZE;
-
-    int packetOffset = 0;
-    for (int i = startIndex; i < endIndex; i++) {
-      int row = i / (image.cols * image.channels());
-      int col = (i % (image.cols * image.channels())) / image.channels();
-      int channel = i % image.channels();
-      packet[packetOffset++] = image.at<cv::Vec3b>(row, col)[channel];
+  for (const auto& rowEntry : rows_split) {
+    if (rowEntry.size() >= 4) {
+      // Extract row number from the first 4 bytes
+      int rowNumber = (rowEntry[0] << 24) | (rowEntry[1] << 16) | (rowEntry[2] << 8) | rowEntry[3];
+      // Copy the pixel values to the corresponding row in the image
+      if (rowNumber < imageHeight) {
+        std::copy(rowEntry.begin() + 4, rowEntry.end(), image.ptr(rowNumber));
+      }
+      else {
+        std::cerr << "Row number exceeds image height." << std::endl;
+      }
+    } 
+    else {
+      std::cerr << "Invalid row entry format." << std::endl;
     }
-
-    packets.push_back(packet);
   }
 
-  return packets;
+  return image;
 }
 
-void sendCmdFilter(uint16_t x, uint16_t y, uint16_t block_size){
+vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answer) {
+  char buffer[CAM_WIDTH];
+  struct sockaddr_in clientAddress;
+  vector<unsigned char> charVector = {0};
+
+  sendto(sockfd, msg.data(), msg.size(), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+  socklen_t clientAddressLength = sizeof(clientAddress);
+  
+  if (wait_answer == true) { 
+    cout << "Waiting to receive row from FPGA..." << std::endl;
+    int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
+    cout << "Received" << std::endl;
+    if (bytesRead == -1)
+      std::cerr << "Failed to receive data!" << endl;
+
+    vector<unsigned char> charVectorImg(buffer, buffer + sizeof(buffer) / sizeof(buffer[0]));
+    return charVectorImg;
+  }
+  else {
+    return charVector;
+  }
+}
+
+Mat sendImgSegments(const Mat& image) {
+  // We send each line of the image and readback the processed line
+  // the only consideration is that the first processed line comes 
+  // after we send two lines, once for a kernel of 3x3, we need at least
+  // two lines.
+
+  vector<vector<unsigned char>> rows_split;
+
+  // Split image into vector of rows
+  // Ensure that the image is single-channel (gray)
+  if (image.channels() == 1) {
+      // Iterate over each row in the image
+      for (int i = 0; i < image.rows; ++i) {
+          // Get the i-th row
+          cv::Mat row = image.row(i);
+
+          // Convert the row number to a vector of 4 bytes
+          vector<unsigned char> rowNumberBytes(4);
+          rowNumberBytes[0] = (i >> 24) & 0xFF;
+          rowNumberBytes[1] = (i >> 16) & 0xFF;
+          rowNumberBytes[2] = (i >> 8) & 0xFF;
+          rowNumberBytes[3] = i & 0xFF;
+
+          // Convert the row data to a vector
+          vector<unsigned char> rowData(row.begin<unsigned char>(), row.end<unsigned char>());
+
+          // Concatenate the row number bytes and row data
+          rowNumberBytes.insert(rowNumberBytes.end(), rowData.begin(), rowData.end());
+
+          // Add the result to the final array
+          rows_split.push_back(rowNumberBytes);
+      }
+  }
+  else {
+    cout << "[ERROR] Image is not single channel" << endl;
+  }
+
+  // Send the initial required rows before sending all rows
+  uint8_t bootstrap_rows = 0;
+  for (size_t i=0; i<(KERNEL_SIZE-2); i++){
+    bootstrap_rows += 1;
+    cout << "Sending segment[" << i << "] of the image" << endl;
+    sendViaUDP(rows_split[i], false);
+  }
+  
+  std::vector<unsigned char> msg = {0xDE, 0xAD, 0xBE, 0xEF};
+  vector<vector<unsigned char>> processed_image;
+
+  for (size_t i=bootstrap_rows; i<(CAM_HEIGHT+bootstrap_rows); i++) {
+    if (i < CAM_HEIGHT) {
+      cout << "Sending segment[" << i << "] of the image" << endl;
+      processed_image.push_back(sendViaUDP(rows_split[i], true));
+    }
+    else {
+      cout << "Receiving remaining segment" << endl;
+      processed_image.push_back(sendViaUDP(msg, true));
+    }
+  }
+  cout << "Received all segments" << endl;
+  return createImageFromRows(processed_image, CAM_WIDTH, CAM_HEIGHT);
+}
+
+void sendCmdFilter(){
   struct sockaddr_in clientAddress;
   const char* ackFPGA = "\xaa\xbb\xcc\xdd";  // Hexadecimal value to compare against
                               // Operation type | Width image | Height image | (x,y) | block size
-  uint32_t filterReqHW[CMD_SIZE] = {FILTER_TYPE, CAM_WIDTH, CAM_HEIGHT, (x<<16) | y, block_size};
+  uint32_t filterReqHW[CMD_SIZE] = {FILTER_TYPE, CAM_WIDTH, CAM_HEIGHT};
   
-  //convertToNetworkOrder(filterReqHW, 4);  
   sendto(sockfd, &filterReqHW, sizeof(filterReqHW), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
   socklen_t clientAddressLength = sizeof(clientAddress);
 
@@ -190,14 +271,12 @@ void plotFilter() {
     // Send the Histogram cmd to the FPGA
     //measureElapsedTime(true);
     //measureElapsedTime();
-    sendCmdFilter(0, 0, frame);
-    //for ()
-    //vector<vector<unsigned char>> udpPkts = splitImageIntoPackets(image);
+    sendCmdFilter();
+    Mat image_filtered = sendImgSegments(image);
 
-    cout << "Frame counter: " << frame++ << std::endl;
-    cout << "Size: " << image.size()  << std::endl;
+    cout << "Frame counter: " << frame++ << " Size: " << image.size() << std::endl;
     // Display the histogram plot
-    //cv::imshow("Histogram - Nexys Video (FPGA)", image);
+    cv::imshow("Histogram - Nexys Video (FPGA)", image_filtered);
   }
   destroyAllWindows();
 }
