@@ -161,6 +161,7 @@ cv::Mat reassembleImage(const std::vector<std::vector<unsigned char>>& entries, 
     return reassembledImage;
 }
 
+
 std::vector<std::vector<unsigned char>> splitImageRows(const cv::Mat& inputImage) {
     std::vector<std::vector<unsigned char>> result;
 
@@ -195,28 +196,40 @@ std::vector<std::vector<unsigned char>> splitImageRows(const cv::Mat& inputImage
     return result;
 }
 
-vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answer) {
-  char buffer[SEGMENT_SIZE];
-  struct sockaddr_in clientAddress;
-  vector<unsigned char> charVector = {0};
+//std::vector<std::vector<unsigned char>> applyMeanFilter(const std::vector<std::vector<unsigned char>>& entries, int image_width, int image_height) {
+    //std::vector<std::vector<unsigned char>> filteredEntries;
 
-  sendto(sockfd, msg.data(), msg.size(), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
-  socklen_t clientAddressLength = sizeof(clientAddress);
-  
-  if (wait_answer == true) { 
-    //cout << "Waiting to receive something from FPGA...";
-    int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
-    //cout << "Received " << bytesRead << " bytes" << std::endl;
-    if (bytesRead == -1)
-      std::cerr << "Failed to receive data!" << endl;
+    //for (const auto& entry : entries) {
+        //int rowIndex, numRows;
+        //std::memcpy(&rowIndex, entry.data(), sizeof(int));
+        //std::memcpy(&numRows, entry.data() + sizeof(int), sizeof(int));
 
-    vector<unsigned char> charVectorImg(buffer, buffer + sizeof(buffer) / sizeof(buffer[0]));
-    return charVectorImg;
-  }
-  else {
-    return charVector;
-  }
-}
+        //// Adjust the number of rows for the first and last entries
+        //if (rowIndex == 0) {
+            //numRows = std::min(2, numRows);
+        //} else if (rowIndex + numRows == image_height) {
+            //numRows = std::min(4, numRows);
+        //} else {
+            //numRows = 3;
+        //}
+
+        //// Create a temporary matrix to hold the pixel values
+        //cv::Mat entryMat(numRows, image_width, CV_8UC1);
+        //std::memcpy(entryMat.data, entry.data() + sizeof(int) * 2, numRows * image_width);
+
+        //// Apply mean filter to the entry
+        //cv::blur(entryMat, entryMat, cv::Size(3, 3));
+
+        //// Copy the filtered pixel values to the new entry
+        //std::vector<unsigned char> filteredEntry(entry.data(), entry.data() + sizeof(int) * 2);
+        //filteredEntry.insert(filteredEntry.end(), entryMat.data, entryMat.data + numRows * image_width);
+        
+        //// Add the filtered entry to the vector
+        //filteredEntries.push_back(filteredEntry);
+    //}
+
+    //return filteredEntries;
+//}
 
 void compareAndPrint(const std::vector<std::vector<unsigned char>>& vec1, const std::vector<std::vector<unsigned char>>& vec2) {
     size_t size1 = vec1.size();
@@ -254,6 +267,30 @@ void compareAndPrint(const std::vector<std::vector<unsigned char>>& vec1, const 
     }
 }
 
+vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answer) {
+  char buffer[SEGMENT_SIZE];
+  struct sockaddr_in clientAddress;
+  vector<unsigned char> charVector = {0};
+
+  sendto(sockfd, msg.data(), msg.size(), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+  socklen_t clientAddressLength = sizeof(clientAddress);
+  
+  if (wait_answer == true) { 
+    //cout << "Waiting to receive something from FPGA...";
+    int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
+    //cout << "Received " << bytesRead << " bytes" << std::endl;
+    if (bytesRead == -1)
+      std::cerr << "Failed to receive data!" << endl;
+
+    vector<unsigned char> charVectorImg(buffer, buffer + sizeof(buffer) / sizeof(buffer[0]));
+    return charVectorImg;
+  }
+  else {
+    return charVector;
+  }
+}
+
+
 cv::Mat sendImgSegments(const cv::Mat& image) {
   // We send each line of the image and readback the processed line
   // the only consideration is that the first processed line comes 
@@ -270,8 +307,7 @@ cv::Mat sendImgSegments(const cv::Mat& image) {
     }
   }
   //cout << "Received all segments of the image" << endl;
-
-  compareAndPrint(rows_split, processed_image);
+  //compareAndPrint(rows_split, processed_image);
 
   return reassembleImage(processed_image, CAM_WIDTH, CAM_HEIGHT);
   //return reassembleImage(rows_split, CAM_WIDTH, CAM_HEIGHT);
@@ -307,11 +343,16 @@ void plotFilter() {
     measureElapsedTime();
     sendCmdFilter();
     Mat image_filtered = sendImgSegments(image);
+    
 
     double timeMeas = measureElapsedTime();
     cout << "Frame counter: " << frame++ << " Size: " << image.size() <<" Time per frame: " << timeMeas << " ms" << std::endl;
     // Display the histogram plot
     cv::imshow("Filtered Image - Nexys Video (FPGA)", image_filtered);
+    //cv::imshow("Filtered Image - Host", reassembleImage(applyMeanFilter(splitImageRows(image_filtered), CAM_WIDTH, CAM_HEIGHT), CAM_WIDTH, CAM_HEIGHT));
+    cv::Mat image_filtered_host;
+    cv::blur(image, image_filtered_host, cv::Size(3, 3));
+    cv::imshow("Filtered Image - Host", image_filtered_host);
   }
   destroyAllWindows();
 }
