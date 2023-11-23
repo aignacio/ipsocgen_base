@@ -30,7 +30,8 @@
 #define IMAGE_WIDTH                   320
 #define IMAGE_HEIGHT                  240
 #define KERNEL_SIZE                   3
-#define SEGMENT_SIZE                  (IMAGE_WIDTH+4)
+#define SEGMENT_SIZE                  ((3*IMAGE_WIDTH)+8)
+#define N_SEG                         3
 
 // [Macro functions]
 #define masterCHECK_TASK(X)           if(X == pdFALSE) {                            \

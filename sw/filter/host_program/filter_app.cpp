@@ -28,6 +28,7 @@
 #define CMD_SIZE        3
 #define CAM_WIDTH       320 //640
 #define CAM_HEIGHT      240 //480
+#define SEGMENT_SIZE    (CAM_WIDTH*3+8)//480
 #define KERNEL_SIZE     3
 
 struct sockaddr_in serverAddress;
@@ -108,7 +109,7 @@ public:
   }
 };
 
-TSQueue<cv::Mat> ThreadSafeQueue(100);
+TSQueue<cv::Mat> ThreadSafeQueue(1);
 
 void streamVideo() {
   cv::VideoCapture inputVideo; //to open video flux
@@ -135,31 +136,67 @@ void streamVideo() {
     outputVideo.release();
 }
 
-cv::Mat createImageFromRows(const std::vector<std::vector<unsigned char>>& rows_split, int imageWidth, int imageHeight) {
-  cv::Mat image(imageHeight, imageWidth, CV_8U);
-
-  for (const auto& rowEntry : rows_split) {
-    if (rowEntry.size() >= 4) {
-      // Extract row number from the first 4 bytes
-      int rowNumber = (rowEntry[0] << 24) | (rowEntry[1] << 16) | (rowEntry[2] << 8) | rowEntry[3];
-      // Copy the pixel values to the corresponding row in the image
-      if (rowNumber < imageHeight) {
-        std::copy(rowEntry.begin() + 4, rowEntry.end(), image.ptr(rowNumber));
-      }
-      else {
-        std::cerr << "Row number exceeds image height." << std::endl;
-      }
-    } 
-    else {
-      std::cerr << "Invalid row entry format." << std::endl;
+cv::Mat reassembleImage(const std::vector<std::vector<unsigned char>>& entries, int image_width, int image_height) {
+    if (entries.empty()) {
+        throw std::invalid_argument("Input vector of entries is empty.");
     }
-  }
 
-  return image;
+    // Create a single-channel image with the specified width and height
+    cv::Mat reassembledImage(image_height, image_width, CV_8UC1, cv::Scalar(0));
+
+    // Iterate through entries and copy pixel values to the reassembled image
+    for (const auto& entry : entries) {
+        // Extract row index and number of rows from the entry
+        int rowIndex, numRows;
+        std::memcpy(&rowIndex, entry.data(), sizeof(int));
+        std::memcpy(&numRows, entry.data() + sizeof(int), sizeof(int));
+
+        // Copy pixel values to the reassembled image
+        for (int j = 0; j < numRows; ++j) {
+            std::memcpy(reassembledImage.ptr(rowIndex + j),
+                        entry.data() + sizeof(int) * 2 + j * image_width, image_width);
+        }
+    }
+
+    return reassembledImage;
+}
+
+std::vector<std::vector<unsigned char>> splitImageRows(const cv::Mat& inputImage) {
+    std::vector<std::vector<unsigned char>> result;
+
+    if (inputImage.channels() != 1) {
+        // Assuming input is a single-channel (grayscale) image
+        throw std::invalid_argument("Input image must be a single-channel image.");
+    }
+
+    int rows = inputImage.rows;
+    int cols = inputImage.cols;
+
+    for (int i = 0; i < rows; i += 3) {
+        int numRowsInEntry = std::min(3, rows - i);
+
+        // Create a vector to store the entry
+        std::vector<unsigned char> entry(sizeof(int) * 2 + numRowsInEntry * cols);
+
+        // Copy the row index and the number of rows into the entry
+        std::memcpy(entry.data(), &i, sizeof(int));
+        std::memcpy(entry.data() + sizeof(int), &numRowsInEntry, sizeof(int));
+
+        // Copy the image data into the entry
+        for (int j = 0; j < numRowsInEntry; ++j) {
+            std::memcpy(entry.data() + sizeof(int) * 2 + j * cols,
+                        inputImage.ptr(i + j), cols);
+        }
+
+        // Add the entry to the result vector
+        result.push_back(entry);
+    }
+
+    return result;
 }
 
 vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answer) {
-  char buffer[CAM_WIDTH];
+  char buffer[SEGMENT_SIZE];
   struct sockaddr_in clientAddress;
   vector<unsigned char> charVector = {0};
 
@@ -167,9 +204,9 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
   socklen_t clientAddressLength = sizeof(clientAddress);
   
   if (wait_answer == true) { 
-    cout << "Waiting to receive something from FPGA...";
+    //cout << "Waiting to receive something from FPGA...";
     int bytesRead = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddress, &clientAddressLength);
-    cout << "Received" << std::endl;
+    //cout << "Received " << bytesRead << " bytes" << std::endl;
     if (bytesRead == -1)
       std::cerr << "Failed to receive data!" << endl;
 
@@ -181,66 +218,63 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
   }
 }
 
-Mat sendImgSegments(const Mat& image) {
+void compareAndPrint(const std::vector<std::vector<unsigned char>>& vec1, const std::vector<std::vector<unsigned char>>& vec2) {
+    size_t size1 = vec1.size();
+    size_t size2 = vec2.size();
+    size_t minSize = std::min(size1, size2);
+
+    // Iterate through the vectors of vectors and print differing elements
+    for (size_t i = 0; i < minSize; ++i) {
+        const auto& subVec1 = vec1[i];
+        const auto& subVec2 = vec2[i];
+
+        size_t subSize1 = subVec1.size();
+        size_t subSize2 = subVec2.size();
+        size_t minSubSize = std::min(subSize1, subSize2);
+
+        // Iterate through the sub-vectors and print differing elements
+        for (size_t j = 0; j < minSubSize; ++j) {
+            if (subVec1[j] != subVec2[j]) {
+                std::cout << "Vectors differ at index (" << i << ", " << j << "): "
+                          << "vec1[" << i << "][" << j << "] = " << static_cast<int>(subVec1[j])
+                          << ", vec2[" << i << "][" << j << "] = " << static_cast<int>(subVec2[j]) << std::endl;
+            }
+        }
+
+        // If the sub-vectors are of different sizes, print the differing size
+        if (subSize1 != subSize2) {
+            std::cout << "Sub-vectors differ in size at index " << i << ": "
+                      << "vec1[" << i << "] size = " << subSize1 << ", vec2[" << i << "] size = " << subSize2 << std::endl;
+        }
+    }
+
+    // If the vectors are of different sizes, print the differing size
+    if (size1 != size2) {
+        std::cout << "Vectors of vectors differ in size: vec1 size = " << size1 << ", vec2 size = " << size2 << std::endl;
+    }
+}
+
+cv::Mat sendImgSegments(const cv::Mat& image) {
   // We send each line of the image and readback the processed line
   // the only consideration is that the first processed line comes 
   // after we send two lines, once for a kernel of 3x3, we need at least
   // two lines.
 
-  vector<vector<unsigned char>> rows_split;
-
-  // Split image into vector of rows
-  // Ensure that the image is single-channel (gray)
-  if (image.channels() == 1) {
-      // Iterate over each row in the image
-      for (int i = 0; i < image.rows; ++i) {
-          // Get the i-th row
-          cv::Mat row = image.row(i);
-
-          // Convert the row number to a vector of 4 bytes
-          vector<unsigned char> rowNumberBytes(4);
-          rowNumberBytes[0] = (i >> 24) & 0xFF;
-          rowNumberBytes[1] = (i >> 16) & 0xFF;
-          rowNumberBytes[2] = (i >> 8) & 0xFF;
-          rowNumberBytes[3] = i & 0xFF;
-
-          // Convert the row data to a vector
-          vector<unsigned char> rowData(row.begin<unsigned char>(), row.end<unsigned char>());
-
-          // Concatenate the row number bytes and row data
-          rowNumberBytes.insert(rowNumberBytes.end(), rowData.begin(), rowData.end());
-
-          // Add the result to the final array
-          rows_split.push_back(rowNumberBytes);
-      }
-  }
-  else {
-    cout << "[ERROR] Image is not single channel" << endl;
-  }
-
-  // Send the initial required rows before sending all rows
-  uint8_t bootstrap_rows = 0;
-  for (size_t i=0; i<(KERNEL_SIZE-2); i++){
-    bootstrap_rows += 1;
-    cout << "Sending segment[" << i << "] of the image" << endl;
-    sendViaUDP(rows_split[i], true);
-  }
-  
-  std::vector<unsigned char> msg = {0xDE, 0xAD, 0xBE, 0xEF};
+  vector<vector<unsigned char>> rows_split = splitImageRows(image);
   vector<vector<unsigned char>> processed_image;
 
-  for (size_t i=bootstrap_rows; i<(CAM_HEIGHT+bootstrap_rows); i++) {
+  for (size_t i=0; i<(CAM_HEIGHT/3); i++) {
     if (i < CAM_HEIGHT) {
-      cout << "Sending segment[" << i << "] of the image" << endl;
+      //cout << "Sending segments [" << i*3 << "," << ((i*3)+2) << "] of the image" << endl;
       processed_image.push_back(sendViaUDP(rows_split[i], true));
     }
-    else {
-      cout << "Receiving remaining segment" << endl;
-      processed_image.push_back(sendViaUDP(msg, true));
-    }
   }
-  cout << "Received all segments" << endl;
-  return createImageFromRows(processed_image, CAM_WIDTH, CAM_HEIGHT);
+  //cout << "Received all segments of the image" << endl;
+
+  compareAndPrint(rows_split, processed_image);
+
+  return reassembleImage(processed_image, CAM_WIDTH, CAM_HEIGHT);
+  //return reassembleImage(rows_split, CAM_WIDTH, CAM_HEIGHT);
 }
 
 void sendCmdFilter(){
@@ -269,12 +303,13 @@ void plotFilter() {
     cvtColor(image, image, COLOR_BGR2GRAY);
 
     // Send the Histogram cmd to the FPGA
-    //measureElapsedTime(true);
-    //measureElapsedTime();
+    measureElapsedTime(true);
+    measureElapsedTime();
     sendCmdFilter();
     Mat image_filtered = sendImgSegments(image);
 
-    cout << "Frame counter: " << frame++ << " Size: " << image.size() << std::endl;
+    double timeMeas = measureElapsedTime();
+    cout << "Frame counter: " << frame++ << " Size: " << image.size() <<" Time per frame: " << timeMeas << " ms" << std::endl;
     // Display the histogram plot
     cv::imshow("Filtered Image - Nexys Video (FPGA)", image_filtered);
   }

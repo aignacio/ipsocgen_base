@@ -32,9 +32,10 @@ static QueueHandle_t xDMADoneQ;
 static QueueHandle_t xProcFilterQ;
 static QueueHandle_t xProcDoneQ;
 
-uint8_t  ucImgSegment[KERNEL_SIZE][SEGMENT_SIZE];
+uint8_t  ucImgSegment[N_SEG][SEGMENT_SIZE];
 uint8_t  ucIndexSeg = 0;
-uint8_t  ucImgFiltered[KERNEL_SIZE][SEGMENT_SIZE];
+
+uint8_t  ucImgFiltered[N_SEG][SEGMENT_SIZE];
 uint8_t  ucIndexFilter = 0;
 
 uint32_t ulImageWidth = 0;
@@ -71,19 +72,18 @@ static inline void vprvSendRowFilter (void) {
 
   vEthClearOutfifoPtr();
   vEthSetSendLenCfg(SEGMENT_SIZE);
-  /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
+  /*dbg("\n\rSending %d bytes", SEGMENT_SIZE); */
   xDMACopyFilt.SrcAddr = (uint32_t*)ucImgFiltered[ucIndexFilter];
   vDMASetDescCfg(1, xDMACopyFilt);
   vDMASetDescGo(1);
   masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &dummy, pdMS_TO_TICKS(500)), "TO DMA to copy");
-  /*xSemaphoreGive(xDMAMutex);*/
-    
-  if (ucIndexFilter == 2){
-    ucIndexFilter = 0;
-  }
-  else {
-    ucIndexFilter += 1;
-  }
+ 
+  /*if (ucIndexFilter == (N_SEG-1)){*/
+    /*ucIndexFilter = 0;*/
+  /*}*/
+  /*else {*/
+    /*ucIndexFilter += 1;*/
+  /*}*/
   vEthSendPkt();
   masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &dummy, pdMS_TO_TICKS(500)),"Send UDP Pkt");
 }
@@ -102,7 +102,6 @@ static void vprvProcCmd (void *pvParameters) {
   CmdType_t cmd;
   uint32_t  ulBuffer32;
   uint32_t  ulTest;
-  uint8_t   ucBuffer8 = 0;
 
   // Prepare the DMA descriptor 0 to receive data from Eth
   DMADesc_t xDMACopySeg = {
@@ -127,28 +126,18 @@ static void vprvProcCmd (void *pvParameters) {
         /*dbg("\n\r[CMD] Filter request received - %d x %d ", ulImageWidth, ulImageHeight);*/
         vprvSendAckEth();
  
-        // First row
-        masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv first row");
-        vDMASetDescGo(0);
-        masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ulTest, pdMS_TO_TICKS(500)), "TO DMA to copy");
-        vEthClearInfifoPtr();
-        vprvSendAckEth();      
-        ucIndexSeg =+1;
-
-        for (size_t i=0; i<(IMAGE_HEIGHT); i++) {
-          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv row row");
+        for (size_t i=0; i< (IMAGE_HEIGHT/3); i++) {
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv rows");
           xDMACopySeg.DstAddr = (uint32_t*)ucImgSegment[ucIndexSeg];
-          /*xSemaphoreTake(xDMAMutex, portMAX_DELAY);*/
           vDMASetDescCfg(0, xDMACopySeg);
           vDMASetDescGo(0);
           masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ulTest, pdMS_TO_TICKS(500)), "TO DMA to copy");
-          /*xSemaphoreGive(xDMAMutex);*/
-          if (ucIndexSeg == 2) {
-            ucIndexSeg = 0;
-          }
-          else {
-            ucIndexSeg += 1;
-          }
+          /*if (ucIndexSeg == (N_SEG-1)) {*/
+            /*ucIndexSeg = 0;*/
+          /*}*/
+          /*else {*/
+            /*ucIndexSeg += 1;*/
+          /*}*/
           vEthClearInfifoPtr();
           masterTIMEOUT_INFO(xQueueSend(xProcFilterQ, &ulRowCount, pdMS_TO_TICKS(500)), "TO to send next to proc");
           masterTIMEOUT_INFO(xQueueReceive(xProcDoneQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv proc done");
@@ -180,7 +169,7 @@ static void vprvProcCmd (void *pvParameters) {
 
 static void vprvProcImg (void *pvParameters) {
   uint32_t ulBuffer32 = 0;
-  uint16_t centerRow = 0;
+  /*uint16_t centerRow = 0;*/
 
 
   // Programming the first descriptor
@@ -217,11 +206,8 @@ static void vprvProcImg (void *pvParameters) {
     /*else {*/
       /*ulRowCount += 1;*/
     /*}*/
-    for (size_t i=0; i<4; i++) {
-      ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];
-    }
 
-    for (size_t i=4; i<SEGMENT_SIZE; i++) {
+    for (size_t i=0; i<SEGMENT_SIZE; i++) {
       ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];
     }
 
