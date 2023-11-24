@@ -28,7 +28,7 @@
 #define CMD_SIZE        3
 #define CAM_WIDTH       320 //640
 #define CAM_HEIGHT      240 //480
-#define SEGMENT_SIZE    (CAM_WIDTH*3+8)//480
+#define SEGMENT_SIZE    (CAM_WIDTH)//480
 #define KERNEL_SIZE     3
 
 struct sockaddr_in serverAddress;
@@ -53,6 +53,42 @@ double measureElapsedTime(bool reset = false)
     }
 
     return elapsedTime;
+}
+
+void compareAndPrint(const std::vector<std::vector<unsigned char>>& vec1, const std::vector<std::vector<unsigned char>>& vec2) {
+    size_t size1 = vec1.size();
+    size_t size2 = vec2.size();
+    size_t minSize = std::min(size1, size2);
+
+    // Iterate through the vectors of vectors and print differing elements
+    for (size_t i = 0; i < minSize; ++i) {
+        const auto& subVec1 = vec1[i];
+        const auto& subVec2 = vec2[i];
+
+        size_t subSize1 = subVec1.size();
+        size_t subSize2 = subVec2.size();
+        size_t minSubSize = std::min(subSize1, subSize2);
+
+        // Iterate through the sub-vectors and print differing elements
+        for (size_t j = 0; j < minSubSize; ++j) {
+            if (subVec1[j] != subVec2[j]) {
+                std::cout << "Vectors differ at index (" << i << ", " << j << "): "
+                          << "vec1[" << i << "][" << j << "] = " << static_cast<int>(subVec1[j])
+                          << ", vec2[" << i << "][" << j << "] = " << static_cast<int>(subVec2[j]) << std::endl;
+            }
+        }
+
+        // If the sub-vectors are of different sizes, print the differing size
+        if (subSize1 != subSize2) {
+            std::cout << "Sub-vectors differ in size at index " << i << ": "
+                      << "vec1[" << i << "] size = " << subSize1 << ", vec2[" << i << "] size = " << subSize2 << std::endl;
+        }
+    }
+
+    // If the vectors are of different sizes, print the differing size
+    if (size1 != size2) {
+        std::cout << "Vectors of vectors differ in size: vec1 size = " << size1 << ", vec2 size = " << size2 << std::endl;
+    }
 }
 
 template <typename T>
@@ -137,134 +173,90 @@ void streamVideo() {
 }
 
 cv::Mat reassembleImage(const std::vector<std::vector<unsigned char>>& entries, int image_width, int image_height) {
-    if (entries.empty()) {
-        throw std::invalid_argument("Input vector of entries is empty.");
+    // Create an empty image with the specified width and height
+    cv::Mat reassembledImage(image_height, image_width, CV_8U, cv::Scalar(0));
+
+    // Use a map to store rows and their corresponding vectors
+    std::map<int, std::vector<unsigned char>> rowMap;
+
+    // Iterate through each entry in the vector
+    for (const auto& entry : entries) {
+        // Extract the row index from the first 4 bytes
+        int row = (entry[0] << 24) | (entry[1] << 16) | (entry[2] << 8) | entry[3];
+
+        // Store the entry in the map using the row index as the key
+        rowMap[row] = entry;
     }
 
-    // Create a single-channel image with the specified width and height
-    cv::Mat reassembledImage(image_height, image_width, CV_8UC1, cv::Scalar(0));
+    // Iterate through the map and copy the pixel values to the reassembled image
+    for (const auto& pair : rowMap) {
+        int row = pair.first;
 
-    // Iterate through entries and copy pixel values to the reassembled image
-    for (const auto& entry : entries) {
-        // Extract row index and number of rows from the entry
-        int rowIndex, numRows;
-        std::memcpy(&rowIndex, entry.data(), sizeof(int));
-        std::memcpy(&numRows, entry.data() + sizeof(int), sizeof(int));
+        // Ensure that the row index is within the image bounds
+        if (row >= 0 && row < image_height) {
+            const auto& entry = pair.second;
 
-        // Copy pixel values to the reassembled image
-        for (int j = 0; j < numRows; ++j) {
-            std::memcpy(reassembledImage.ptr(rowIndex + j),
-                        entry.data() + sizeof(int) * 2 + j * image_width, image_width);
+            // Copy the pixel values to the reassembled image
+            int col = 0;
+            for (size_t i = 4; i < entry.size(); ++i) {
+                reassembledImage.at<uchar>(row, col) = entry[i];
+                ++col;
+            }
         }
     }
 
     return reassembledImage;
 }
 
-
 std::vector<std::vector<unsigned char>> splitImageRows(const cv::Mat& inputImage) {
     std::vector<std::vector<unsigned char>> result;
 
+    // Check if the input image is single channel
     if (inputImage.channels() != 1) {
-        // Assuming input is a single-channel (grayscale) image
-        throw std::invalid_argument("Input image must be a single-channel image.");
+        throw std::invalid_argument("Input image must be single channel");
     }
 
-    int rows = inputImage.rows;
-    int cols = inputImage.cols;
+    // Add two rows to the image for top and bottom padding
+    cv::Mat paddedImage;
+    cv::copyMakeBorder(inputImage, paddedImage, 1, 1, 0, 0, cv::BORDER_CONSTANT, 0);
 
-    for (int i = 0; i < rows; i += 3) {
-        int numRowsInEntry = std::min(3, rows - i);
+    // Iterate over rows
+    for (int row = 1; row < paddedImage.rows - 1; ++row) {
+        std::vector<unsigned char> rowVector;
 
-        // Create a vector to store the entry
-        std::vector<unsigned char> entry(sizeof(int) * 2 + numRowsInEntry * cols);
+        // Add the 4-byte index at the beginning of the row vector
+        rowVector.push_back(((row - 1) >> 24) & 0xFF);
+        rowVector.push_back(((row - 1) >> 16) & 0xFF);
+        rowVector.push_back(((row - 1) >> 8) & 0xFF);
+        rowVector.push_back((row - 1) & 0xFF);
 
-        // Copy the row index and the number of rows into the entry
-        std::memcpy(entry.data(), &i, sizeof(int));
-        std::memcpy(entry.data() + sizeof(int), &numRowsInEntry, sizeof(int));
-
-        // Copy the image data into the entry
-        for (int j = 0; j < numRowsInEntry; ++j) {
-            std::memcpy(entry.data() + sizeof(int) * 2 + j * cols,
-                        inputImage.ptr(i + j), cols);
+        // Iterate over columns
+        rowVector.push_back(0);
+        for (int col = 0; col < paddedImage.cols; ++col) {
+            rowVector.push_back(paddedImage.at<uchar>(row - 1, col));
         }
+        rowVector.push_back(0);
 
-        // Add the entry to the result vector
-        result.push_back(entry);
+        rowVector.push_back(0);
+        for (int col = 0; col < paddedImage.cols; ++col) {
+            rowVector.push_back(paddedImage.at<uchar>(row, col));
+        }
+        rowVector.push_back(0);
+
+        rowVector.push_back(0);
+        for (int col = 0; col < paddedImage.cols; ++col) {
+            rowVector.push_back(paddedImage.at<uchar>(row + 1, col));
+        }
+        rowVector.push_back(0);
+
+
+        // Add 2x bytes to be word multiple
+        rowVector.push_back(0);
+        rowVector.push_back(0);
+        result.push_back(rowVector);
     }
 
     return result;
-}
-
-//std::vector<std::vector<unsigned char>> applyMeanFilter(const std::vector<std::vector<unsigned char>>& entries, int image_width, int image_height) {
-    //std::vector<std::vector<unsigned char>> filteredEntries;
-
-    //for (const auto& entry : entries) {
-        //int rowIndex, numRows;
-        //std::memcpy(&rowIndex, entry.data(), sizeof(int));
-        //std::memcpy(&numRows, entry.data() + sizeof(int), sizeof(int));
-
-        //// Adjust the number of rows for the first and last entries
-        //if (rowIndex == 0) {
-            //numRows = std::min(2, numRows);
-        //} else if (rowIndex + numRows == image_height) {
-            //numRows = std::min(4, numRows);
-        //} else {
-            //numRows = 3;
-        //}
-
-        //// Create a temporary matrix to hold the pixel values
-        //cv::Mat entryMat(numRows, image_width, CV_8UC1);
-        //std::memcpy(entryMat.data, entry.data() + sizeof(int) * 2, numRows * image_width);
-
-        //// Apply mean filter to the entry
-        //cv::blur(entryMat, entryMat, cv::Size(3, 3));
-
-        //// Copy the filtered pixel values to the new entry
-        //std::vector<unsigned char> filteredEntry(entry.data(), entry.data() + sizeof(int) * 2);
-        //filteredEntry.insert(filteredEntry.end(), entryMat.data, entryMat.data + numRows * image_width);
-        
-        //// Add the filtered entry to the vector
-        //filteredEntries.push_back(filteredEntry);
-    //}
-
-    //return filteredEntries;
-//}
-
-void compareAndPrint(const std::vector<std::vector<unsigned char>>& vec1, const std::vector<std::vector<unsigned char>>& vec2) {
-    size_t size1 = vec1.size();
-    size_t size2 = vec2.size();
-    size_t minSize = std::min(size1, size2);
-
-    // Iterate through the vectors of vectors and print differing elements
-    for (size_t i = 0; i < minSize; ++i) {
-        const auto& subVec1 = vec1[i];
-        const auto& subVec2 = vec2[i];
-
-        size_t subSize1 = subVec1.size();
-        size_t subSize2 = subVec2.size();
-        size_t minSubSize = std::min(subSize1, subSize2);
-
-        // Iterate through the sub-vectors and print differing elements
-        for (size_t j = 0; j < minSubSize; ++j) {
-            if (subVec1[j] != subVec2[j]) {
-                std::cout << "Vectors differ at index (" << i << ", " << j << "): "
-                          << "vec1[" << i << "][" << j << "] = " << static_cast<int>(subVec1[j])
-                          << ", vec2[" << i << "][" << j << "] = " << static_cast<int>(subVec2[j]) << std::endl;
-            }
-        }
-
-        // If the sub-vectors are of different sizes, print the differing size
-        if (subSize1 != subSize2) {
-            std::cout << "Sub-vectors differ in size at index " << i << ": "
-                      << "vec1[" << i << "] size = " << subSize1 << ", vec2[" << i << "] size = " << subSize2 << std::endl;
-        }
-    }
-
-    // If the vectors are of different sizes, print the differing size
-    if (size1 != size2) {
-        std::cout << "Vectors of vectors differ in size: vec1 size = " << size1 << ", vec2 size = " << size2 << std::endl;
-    }
 }
 
 vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answer) {
@@ -290,27 +282,17 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
   }
 }
 
-
 cv::Mat sendImgSegments(const cv::Mat& image) {
-  // We send each line of the image and readback the processed line
-  // the only consideration is that the first processed line comes 
-  // after we send two lines, once for a kernel of 3x3, we need at least
-  // two lines.
-
   vector<vector<unsigned char>> rows_split = splitImageRows(image);
   vector<vector<unsigned char>> processed_image;
 
-  for (size_t i=0; i<(CAM_HEIGHT/3); i++) {
+  for (size_t i=0; i<CAM_HEIGHT; i++) {
     if (i < CAM_HEIGHT) {
       //cout << "Sending segments [" << i*3 << "," << ((i*3)+2) << "] of the image" << endl;
       processed_image.push_back(sendViaUDP(rows_split[i], true));
     }
   }
-  //cout << "Received all segments of the image" << endl;
-  //compareAndPrint(rows_split, processed_image);
-
   return reassembleImage(processed_image, CAM_WIDTH, CAM_HEIGHT);
-  //return reassembleImage(rows_split, CAM_WIDTH, CAM_HEIGHT);
 }
 
 void sendCmdFilter(){
@@ -343,7 +325,6 @@ void plotFilter() {
     measureElapsedTime();
     sendCmdFilter();
     Mat image_filtered = sendImgSegments(image);
-    
 
     double timeMeas = measureElapsedTime();
     cout << "Frame counter: " << frame++ << " Size: " << image.size() <<" Time per frame: " << timeMeas << " ms" << std::endl;

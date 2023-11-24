@@ -32,20 +32,19 @@ static QueueHandle_t xDMADoneQ;
 static QueueHandle_t xProcFilterQ;
 static QueueHandle_t xProcDoneQ;
 
-uint8_t  ucImgSegment[N_SEG][SEGMENT_SIZE];
-uint8_t  ucIndexSeg = 0;
-
-uint8_t  ucImgFiltered[N_SEG][SEGMENT_SIZE];
-uint8_t  ucIndexFilter = 0;
-
 uint32_t ulImageWidth = 0;
 uint32_t ulImageHeight = 0;
 
+
+uint8_t  ucImgSegment[SEGMENT_SIZE];
+uint8_t  ucIndexSeg = 0;
+
+uint8_t  ucImgFiltered[4+IMAGE_WIDTH];
 uint32_t ulRowCount = 0;
 
 // Prepare the DMA descriptor 0 to receive data from Eth
 DMADesc_t xDMACopyFilt = {
-    .SrcAddr  = (uint32_t*)0,
+    .SrcAddr  = (uint32_t*)ucImgFiltered,
     .DstAddr  = (uint32_t*)ethOUTFIFO_ADDR,
     .NumBytes = (SEGMENT_SIZE),
     .Cfg = {
@@ -71,10 +70,10 @@ static inline void vprvSendRowFilter (void) {
   uint8_t dummy;
 
   vEthClearOutfifoPtr();
-  vEthSetSendLenCfg(SEGMENT_SIZE);
+  vEthSetSendLenCfg(IMAGE_WIDTH);
   /*dbg("\n\rSending %d bytes", SEGMENT_SIZE); */
-  xDMACopyFilt.SrcAddr = (uint32_t*)ucImgFiltered[ucIndexFilter];
-  vDMASetDescCfg(1, xDMACopyFilt);
+  /*xDMACopyFilt.SrcAddr = (uint32_t*)ucImgFiltered[ucIndexFilter];*/
+  /*vDMASetDescCfg(1, xDMACopyFilt);*/
   vDMASetDescGo(1);
   masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &dummy, pdMS_TO_TICKS(500)), "TO DMA to copy");
  
@@ -106,7 +105,7 @@ static void vprvProcCmd (void *pvParameters) {
   // Prepare the DMA descriptor 0 to receive data from Eth
   DMADesc_t xDMACopySeg = {
     .SrcAddr  = (uint32_t*)ethINFIFO_ADDR,
-    .DstAddr  = (uint32_t*)ucImgSegment[ucIndexSeg],
+    .DstAddr  = (uint32_t*)ucImgSegment,
     .NumBytes = (SEGMENT_SIZE),
     .Cfg = {
       .WrMode = DMA_MODE_INCR,
@@ -125,21 +124,21 @@ static void vprvProcCmd (void *pvParameters) {
         xMasterCurStatus = MASTER_STATUS_RUNNING;
         /*dbg("\n\r[CMD] Filter request received - %d x %d ", ulImageWidth, ulImageHeight);*/
         vprvSendAckEth();
- 
-        for (size_t i=0; i< (IMAGE_HEIGHT/3); i++) {
+        xDMACopySeg.DstAddr = (uint32_t*)ucImgSegment;
+        vDMASetDescCfg(0, xDMACopySeg);
+
+        for (size_t i=0; i< (IMAGE_HEIGHT); i++) {
           masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv rows");
-          xDMACopySeg.DstAddr = (uint32_t*)ucImgSegment[ucIndexSeg];
-          vDMASetDescCfg(0, xDMACopySeg);
           vDMASetDescGo(0);
           masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ulTest, pdMS_TO_TICKS(500)), "TO DMA to copy");
+          vEthClearInfifoPtr();
+          masterTIMEOUT_INFO(xQueueSend(xProcFilterQ, &ulRowCount, pdMS_TO_TICKS(500)), "TO to send next to proc");
           /*if (ucIndexSeg == (N_SEG-1)) {*/
             /*ucIndexSeg = 0;*/
           /*}*/
           /*else {*/
             /*ucIndexSeg += 1;*/
           /*}*/
-          vEthClearInfifoPtr();
-          masterTIMEOUT_INFO(xQueueSend(xProcFilterQ, &ulRowCount, pdMS_TO_TICKS(500)), "TO to send next to proc");
           masterTIMEOUT_INFO(xQueueReceive(xProcDoneQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv proc done");
           vprvSendRowFilter();
         }
@@ -169,47 +168,38 @@ static void vprvProcCmd (void *pvParameters) {
 
 static void vprvProcImg (void *pvParameters) {
   uint32_t ulBuffer32 = 0;
-  /*uint16_t centerRow = 0;*/
+  uint32_t sum = 0;
 
 
   // Programming the first descriptor
-  /*vDMASetDescCfg(1, xDMACopyFilt);*/
+  vDMASetDescCfg(1, xDMACopyFilt);
 
   for (;;) {
     xQueueReceive(xProcFilterQ, &ulBuffer32, portMAX_DELAY);
     
-    /*centerRow = ulRowCount%3;*/
-    
-    // Copy the row info first
-    /*for (size_t i=0; i<4; i++) {*/
-      /*ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];*/
-    /*}*/
-    
-    /*for (size_t pixel=4; pixel<(IMAGE_WIDTH+4); pixel++) {*/
-      /*if (ulRowCount == 0) {*/
-        /*if (pixel == 4) {*/
-          
-        /*}*/
-        /*ucImgFiltered[ucIndexFilter][pixel] = sum/9;*/
-      /*}*/
-      /*else if (ulRowCount == (IMAGE_HEIGHT-1)){*/
-      
-      /*}*/
-      /*else {*/
-
-      /*}*/
-    /*}*/
-
-    /*if (ulRowCount == (IMAGE_HEIGHT-1)) {*/
-      /*ulRowCount = 0;*/
-    /*}*/
-    /*else {*/
-      /*ulRowCount += 1;*/
-    /*}*/
-
-    for (size_t i=0; i<SEGMENT_SIZE; i++) {
-      ucImgFiltered[ucIndexFilter][i] = ucImgSegment[ucIndexFilter][i];
+    for (size_t i=0; i<4; i++) {
+      ucImgFiltered[i] = ucImgSegment[i];
     }
+    
+    for (size_t pixel=0; pixel<IMAGE_WIDTH; pixel++){
+      sum = 0;
+      /*dbg("Pixel %d\n\r", pixel);*/
+      for (size_t row=0; row<3; row++) { // 3x rows per packet
+        for (size_t j=0; j<3; j++){ // cols
+          uint16_t index = 4+pixel+(row*(IMAGE_WIDTH+2))+j;
+          sum += ucImgSegment[index]; 
+          /*dbg("[%d]",index);*/
+        }
+        /*dbg("\n\r");*/
+      }
+      sum = sum/9;
+      ucImgFiltered[4+pixel] = (uint8_t *)sum;
+    }
+    
+    // Image bypass
+    /*for (size_t i=0; i<SEGMENT_SIZE; i++) {*/
+      /*ucImgFiltered[i] = ucImgSegment[ucIndexSeg][i];*/
+    /*}*/
 
     // Send the current row filtered
     masterTIMEOUT_INFO(xQueueSend(xProcDoneQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to send done hist!");
