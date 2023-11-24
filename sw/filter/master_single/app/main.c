@@ -46,7 +46,7 @@ uint32_t ulRowCount = 0;
 DMADesc_t xDMACopyFilt = {
     .SrcAddr  = (uint32_t*)ucImgFiltered,
     .DstAddr  = (uint32_t*)ethOUTFIFO_ADDR,
-    .NumBytes = (SEGMENT_SIZE),
+    .NumBytes = (4+IMAGE_WIDTH),
     .Cfg = {
       .WrMode = DMA_MODE_FIXED,
       .RdMode = DMA_MODE_INCR,
@@ -70,7 +70,7 @@ static inline void vprvSendRowFilter (void) {
   uint8_t dummy;
 
   vEthClearOutfifoPtr();
-  vEthSetSendLenCfg(IMAGE_WIDTH);
+  vEthSetSendLenCfg(4+IMAGE_WIDTH);
   /*dbg("\n\rSending %d bytes", SEGMENT_SIZE); */
   /*xDMACopyFilt.SrcAddr = (uint32_t*)ucImgFiltered[ucIndexFilter];*/
   /*vDMASetDescCfg(1, xDMACopyFilt);*/

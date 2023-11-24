@@ -28,7 +28,7 @@
 #define CMD_SIZE        3
 #define CAM_WIDTH       320 //640
 #define CAM_HEIGHT      240 //480
-#define SEGMENT_SIZE    (CAM_WIDTH)//480
+#define SEGMENT_SIZE    (CAM_WIDTH+4)//480
 #define KERNEL_SIZE     3
 
 struct sockaddr_in serverAddress;
