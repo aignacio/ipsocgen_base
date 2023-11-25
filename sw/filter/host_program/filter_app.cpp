@@ -303,7 +303,7 @@ cv::Mat sendImgSegments(const cv::Mat& image) {
    
     if (temp.size() == 324) 
       processed_image.push_back(temp);
-    //cout << "p " << processed_image.size() << endl; 
+    //cout << "processed_image.size() == " << processed_image.size() << endl; 
     loops++;
   }
 

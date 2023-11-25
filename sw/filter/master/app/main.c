@@ -177,7 +177,7 @@ static void vprvCopyImg (void *pvParameters) {
 
         for (size_t i=0; i<(IMAGE_HEIGHT); i++) {
           /*dbg("\n\rWaiting for eth data...");*/
-          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv rows");
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv first 240 rows");
 
           // Get a free slave and send the row - BLOCKING
           /*dbg("\n\rGetting a slave to send");*/
@@ -197,23 +197,16 @@ static void vprvCopyImg (void *pvParameters) {
           }
         }
                 
-        uint8_t ucAllSlavesBusy = 1;
+        uint8_t temp = 0;
 
-        while (ucAllSlavesBusy) {
-          for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
-            if (ucSlaveTileResVec[i] == 1) {
-              ucAllSlavesBusy = 0;
-              break;
-            }
-          }
-          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv dummy rows");
-          if (xQueueReceive(xRowReadyQ, &ucRowReady, pdMS_TO_TICKS(0)) == pdPASS) {
-            vprvSendRow(ucRowReady); 
-          }
-          else {
-            // send 0xFF
-            vprvSendNothing(); 
-          }
+        while (temp<3) {
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO after 240");
+          vEthClearInfifoPtr();
+          masterTIMEOUT_INFO(xQueueReceive(xRowReadyQ, &ucRowReady, pdMS_TO_TICKS(500)), "TO to recv rows");
+          if (temp == 2)
+            xMasterCurStatus = MASTER_STATUS_IDLE;
+          vprvSendRow(ucRowReady); 
+          temp++;
         }
         dbg("\n\r---------DONE-----------");
         break;
