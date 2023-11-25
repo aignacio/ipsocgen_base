@@ -21,7 +21,7 @@ QueueHandle_t xNoCMailboxQ, xPktProcQ, xDMAQ;
 TaskHandle_t xProcHandle;
 
 static uint16_t usgSizeSeg;
-
+uint8_t global=0;
 uint8_t  ucgImgBufferProc [PAYLOAD_SIZE];
 uint8_t  ucgFilterbuffer [IMAGE_WIDTH+4];
 uint8_t  ucgRunProcessing = 0;
@@ -32,7 +32,7 @@ static void vprvProcessNoCPkts(void *pvParameters) {
 
   DMADesc_t xDMACopySegDesc = {
     .SrcAddr  = (uint32_t*)ravenocRD_BUFFER,
-    .DstAddr  = (uint32_t*)&ucgImgBufferProc[0],
+    .DstAddr  = (uint32_t*)ucgImgBufferProc,
     .NumBytes = PAYLOAD_SIZE,
     .Cfg = {
       .WrMode = DMA_MODE_INCR,
@@ -76,12 +76,19 @@ static void vprvCalcFilter (uint16_t usSize) {
     sum = sum/9;
     ucgFilterbuffer[4+pixel] = (uint8_t *)sum;
   }
+  /*global++;*/
+  /*if (global == 4){*/
+    /*for (size_t i=0; i<(IMAGE_WIDTH+4);i++){*/
+      /*dbg("\n\rpixel[%i] = %d",i, ucgImgBufferProc[i]);*/
+    /*}*/
+  /*while(1);*/
+  /*}*/
 }
 
 static void vprvImgSeg(void *pvParameters) {
   uint16_t usBuffer16;
   DMADesc_t xDMASendHistDesc = {
-    .SrcAddr  = (uint32_t*)&ucgFilterbuffer,
+    .SrcAddr  = (uint32_t*)ucgFilterbuffer,
     .DstAddr  = (uint32_t*)ravenocWR_BUFFER,
     .NumBytes = IMAGE_WIDTH+4,
     .Cfg = {

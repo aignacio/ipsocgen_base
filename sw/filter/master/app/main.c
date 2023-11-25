@@ -141,7 +141,7 @@ static void vprvSendRow (uint8_t row_ready) {
     .NumBytes = (IMAGE_WIDTH+4),
     .Cfg = {
       .WrMode = DMA_MODE_FIXED,
-      .RdMode = DMA_MODE_FIXED,
+      .RdMode = DMA_MODE_INCR,
       .Enable = DMA_MODE_ENABLE
     }
   };
