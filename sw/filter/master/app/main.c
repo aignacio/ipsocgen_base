@@ -17,6 +17,9 @@
 #include "eth.h"
 #include "mpsoc_types.h"
 
+uint32_t ulImageWidth = 0;
+uint32_t ulImageHeight = 0;
+
 static SemaphoreHandle_t xDMAMutex;
 static SemaphoreHandle_t xHistogramMutex;
 static SemaphoreHandle_t xSlaveTileResMutex;
@@ -26,11 +29,10 @@ static QueueHandle_t xDataReqQ;
 static QueueHandle_t xEthSentQ;
 static QueueHandle_t xDMADoneQ;
 static QueueHandle_t xNoCPktFromSlavesQ;
+static QueueHandle_t xRowReadyQ;
 
 static uint8_t  ucSlaveTileResVec [masterNOC_TOTAL_TILES];
-static uint32_t ucGlobalHistogram [256]; // Store the global histogram
-static uint16_t ucDataBuffer [256]; // Store the partial histogram from the slave tiles
-static uint8_t  ucDataEthBuffer [1024]; // Used only when local processing without slave tiles
+uint8_t  ucDataBuffer[masterNOC_TOTAL_TILES][IMAGE_WIDTH+4]; // Store the row ready
 
 TaskHandle_t xHandleCopyImg;
 TaskHandle_t xHandleRecvData;
@@ -52,18 +54,6 @@ static uint8_t ucprvGetFreeSlaveTile (void) {
         break;
       }
     }
-    // REMOVE THIS CODE WHEN FINAL - BELOW
-    /*if (ucSlaveTileResVec[1] == 1) {*/
-      /*ucFreeSlaveIndex = 1;*/
-      /*ucAllSlavesBusy = 0;*/
-      /*break;*/
-    /*}*/
-    /*if (ucSlaveTileResVec[2] == 1) {*/
-      /*ucFreeSlaveIndex = 2;*/
-      /*ucAllSlavesBusy = 0;*/
-      /*break;*/
-    /*}*/
-    // REMOVE THIS CODE WHEN FINAL - ABOVE
     ulTimeoutSlaveCnt++;
     if (ulTimeoutSlaveCnt > 100000) {
       masterCRASH_DBG_INFO("[TIMEOUT] No slaves available");
@@ -81,32 +71,6 @@ static uint8_t ucprvGetFreeSlaveTile (void) {
   return ucFreeSlaveIndex;
 }
 
-static void vprvSendHistEth(void) {
-  // Wait till all slaves are available
-  uint8_t ucAllAvail = 0;
-
-  while (ucAllAvail == 0) {
-    ucAllAvail = 1;
-    for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
-      if (ucSlaveTileResVec[i] == 0) {
-        ucAllAvail = 0;
-      }
-    }
-  }
-
-  // Copy the histogram to the Eth INFIFO
-  vEthSetSendLenCfg(1024);
-
-  vEthClearOutfifoPtr();
-  for (uint16_t i=0; i<256; i++) {
-    vEthWriteOutfifoWData(ucGlobalHistogram[i]);
-  }
-  vEthSendPkt();
-
-  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &ucAllAvail, pdMS_TO_TICKS(500)),"Send UDP Pkt");
-  vEthSetSendLenCfg(4);
-}
-
 static void ucprvSetFreeSlaveTile (uint8_t index) {
   xSemaphoreTake(xSlaveTileResMutex, portMAX_DELAY);
   ucSlaveTileResVec[index] = 1;
@@ -116,81 +80,21 @@ static void ucprvSetFreeSlaveTile (uint8_t index) {
 static inline void vprvSendAckEth (void) {
   uint8_t payload[4] = {0xAA, 0xBB, 0xCC, 0xDD};
 
+  vEthSetSendLenCfg(4);
   vEthClearOutfifoPtr();
   vEthWriteOutfifoData((uint8_t*)&payload, 4);
   vEthSendPkt();
   masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &payload, pdMS_TO_TICKS(500)),"Send UDP Pkt");
 }
 
-static void vprvCalcHist (uint32_t pixels_4) {
-  uint8_t pixel = 0;
-
-  xSemaphoreTake(xHistogramMutex, portMAX_DELAY);
-  for (size_t i=0; i<4; i++) {
-    pixel = ((pixels_4 >> 8*i) & 0xFF);
-    ucGlobalHistogram[pixel]++;
-  }
-  xSemaphoreGive(xHistogramMutex);
-}
-
-static void vprvCalcHistSlave (void) {
-  xSemaphoreTake(xHistogramMutex, portMAX_DELAY);
-
-  for (size_t i=0; i<256; i++) {
-    ucGlobalHistogram[i] += ucDataBuffer[i];
-  }
-
-  xSemaphoreGive(xHistogramMutex);
-}
-
 static void vprvSendSegSlave (uint8_t slave_index) {
   uint8_t ucBuffer8;
-
-  // All packets are 1KiB
-  vRaveNoCSendNoCMsg(slave_index, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM);
-  /*dbg("\n\r%d - %x",slave_index, ulRaveNoCGetHeader(slave_index, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM));*/
-  // Wait to obtain access to the DMA peripheral
-  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
-  // Launch the DMA for descriptor 0 only
-  vDMASetDescGo(0);
-  //Wait DMA completion
-  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
-  // Release the mutex
-  xSemaphoreGive(xDMAMutex);
-
-  // Clean the ptr to zero the INFIFO
-  vEthClearInfifoPtr();
-}
-
-static void vprvProcLocal (void) {
-  uint8_t ucBuffer8;
-  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
-  // Launch the DMA for descriptor 0 only
-  vDMASetDescGo(0);
-  //Wait DMA completion
-  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
-  // Release the mutex
-  xSemaphoreGive(xDMAMutex);
-
-  vEthClearInfifoPtr();
-
-  for (size_t i=0; i<1024; i++) {
-    ucGlobalHistogram[ucDataEthBuffer[i]]++;
-  }
-}
-
-static void vprvCopyImg (void *pvParameters) {
-  CmdType_t cmd;
-  uint32_t  ulBuffer32;
-  TickType_t start = xTaskGetTickCount(), stop;
-  TickType_t start_recv = xTaskGetTickCount(), stop_recv;
-  TickType_t start_proc_slave = xTaskGetTickCount(), stop_proc_slave;
 
   // Prepare the DMA descriptor 0 to send the pkt
   DMADesc_t xDMACopyDesc = {
     .SrcAddr  = (uint32_t*)ethINFIFO_ADDR,
     .DstAddr  = (uint32_t*)ravenocWR_BUFFER,
-    .NumBytes = (masterETH_PKT_SIZE_BYTES-4),
+    .NumBytes = SEGMENT_SIZE,
     .Cfg = {
       .WrMode = DMA_MODE_FIXED,
       .RdMode = DMA_MODE_FIXED,
@@ -198,83 +102,120 @@ static void vprvCopyImg (void *pvParameters) {
     }
   };
 
-  /*DMADesc_t xDMACopyDesc = {*/
-    /*.SrcAddr  = (uint32_t*)ethINFIFO_ADDR,*/
-    /*.DstAddr  = (uint32_t*)&ucDataEthBuffer,*/
-    /*.NumBytes = (masterETH_PKT_SIZE_BYTES),*/
-    /*.Cfg = {*/
-      /*.WrMode = DMA_MODE_INCR,*/
-      /*.RdMode = DMA_MODE_FIXED,*/
-      /*.Enable = DMA_MODE_ENABLE*/
-    /*}*/
-  /*};*/
+  vRaveNoCSendNoCMsg(slave_index, SEGMENT_SIZE >> 2, CMD_FILTER);
+  /*dbg("\n\r%d - %x",slave_index, ulRaveNoCGetHeader(slave_index, ((masterETH_PKT_SIZE_BYTES>>2)-1), CMD_HISTOGRAM));*/
+  // Wait to obtain access to the DMA peripheral
+  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
 
   // Programming the first descriptor
   vDMASetDescCfg(0, xDMACopyDesc);
+
+  // Launch the DMA for descriptor 0 only
+  vDMASetDescGo(0);
+  //Wait DMA completion
+  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
+  // Release the mutex
+  xSemaphoreGive(xDMAMutex);
+  /*dbg("sent");*/
+  // Clean the ptr to zero the INFIFO
+  vEthClearInfifoPtr();
+}
+
+static void vprvSendNothing (void) {
+  uint8_t payload[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+
+  vEthSetSendLenCfg(4);
+  vEthClearOutfifoPtr();
+
+  vEthWriteOutfifoData((uint8_t*)&payload, 4);
+  vEthSendPkt();
+  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &payload, pdMS_TO_TICKS(500)),"Send UDP Pkt");
+}
+
+static void vprvSendRow (uint8_t row_ready) {
+  uint8_t ucBuffer8;
+
+  DMADesc_t xDMARow = {
+    .SrcAddr  = (uint32_t*)ucDataBuffer[row_ready],
+    .DstAddr  = (uint32_t*)ethOUTFIFO_ADDR,
+    .NumBytes = (IMAGE_WIDTH+4),
+    .Cfg = {
+      .WrMode = DMA_MODE_FIXED,
+      .RdMode = DMA_MODE_FIXED,
+      .Enable = DMA_MODE_ENABLE
+    }
+  };
+
+  vEthSetSendLenCfg(4+IMAGE_WIDTH);
+  vEthClearOutfifoPtr();
+
+  xSemaphoreTake(xDMAMutex, portMAX_DELAY);
+  vDMASetDescCfg(0, xDMARow);
+  vDMASetDescGo(0);
+  //Wait DMA completion
+  masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucBuffer8, pdMS_TO_TICKS(500)), "Timeout DMA");
+  // Release the mutex
+  xSemaphoreGive(xDMAMutex);
+  vEthSendPkt();
+  
+  masterTIMEOUT_INFO(xQueueReceive(xEthSentQ, &ucBuffer8, pdMS_TO_TICKS(500)),"Send UDP Pkt");
+}
+
+static void vprvCopyImg (void *pvParameters) {
+  CmdType_t cmd;
+  uint32_t  ulBuffer32;
+  uint8_t   ucRowReady;
 
   for (;;) {
     //masterTIMEOUT_INFO(xQueueReceive(xStartFetchImgQ, &cmd, pdMS_TO_TICKS(10000)), "Receive cmd");
     xQueueReceive(xStartFetchImgQ, &cmd, portMAX_DELAY);
     switch (cmd) {
-      case CMD_NONE:
-        dbg("\n\r[CMD] None");
-        break;
-      case CMD_GET_RESULT:
-        vprvSendHistEth();
-        vIRQSetMaskSingle(irqMASK_ETH_RECV_FULL);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV);
-        break;
       case CMD_FILTER:
-        vprvSendAckEth();
-        break;
-      case CMD_HISTOGRAM:
-        /*dbg("\n\r[CMD] Histogram - Pixels - %d", ulNumPixels);*/
         xMasterCurStatus = MASTER_STATUS_RUNNING;
-
-        // zero the main histogram vector
-        for (size_t i=0; i<256; i++)
-          ucGlobalHistogram[i] = 0;
-
+        dbg("\n\r[CMD] Filter request received - %d x %d ", ulImageWidth, ulImageHeight);
         vprvSendAckEth();
 
-        start = xTaskGetTickCount();
+        for (size_t i=0; i<(IMAGE_HEIGHT); i++) {
+          /*dbg("\n\rWaiting for eth data...");*/
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv rows");
 
-        while (ulNumPixels > 0) {
-          /*dbg("\n\r%d", ulNumPixels);*/
-
-          // Wait to receive image segment of 1KiB
-          start_recv = xTaskGetTickCount();
-          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "Receive frame");
-
-          // --> Ethernet has 1KiB image available
-          // Lets compute the histogram of the first 4x pixels (bytes) because
-          // the maximum NoC packet is 1KiB and we have to subtract 4b for the pkt header
-          vprvCalcHist(ulEthGetRecvData());
-
-          // Get the next available slave tile, program the DMA
-          // and send the data over the NoC
+          // Get a free slave and send the row - BLOCKING
+          /*dbg("\n\rGetting a slave to send");*/
           vprvSendSegSlave(ucprvGetFreeSlaveTile());
-          stop_recv = xTaskGetTickCount();
-          /*vprvProcLocal();*/
-
-          ulNumPixels -= ulBuffer32;
-          // Send request of another 1KiB
-          if (ulNumPixels > 0) {
-            vprvSendAckEth();
+          
+          // Check the image queue to see if we have rows ready - NON BLOCKING
+          // if rows are ready, send back to the host
+          /*dbg("\n\rChecking if there rows ready");*/
+          if (xQueueReceive(xRowReadyQ, &ucRowReady, pdMS_TO_TICKS(0)) == pdPASS) {
+            /*dbg("\n\rSendrow");*/
+            vprvSendRow(ucRowReady); 
+          }
+          else {
+            /*dbg("\n\rSendnothing");*/
+            // send 0xFF
+            vprvSendNothing(); 
           }
         }
+                
+        uint8_t ucAllSlavesBusy = 1;
 
-        /*stop = xTaskGetTickCount();*/
-        /*dbg("\n\r%d",stop-start);*/
-
-        vIRQSetMaskSingle(irqMASK_ETH_RECV_FULL);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV);
-        xMasterCurStatus = MASTER_STATUS_IDLE;
-        vprvSendAckEth();
-        vprvSendHistEth();
-
-        stop = xTaskGetTickCount();
-        dbg("Frame %d ms \n\r",((stop-start) << 1));
+        while (ucAllSlavesBusy) {
+          for (size_t i=1; i<masterNOC_TOTAL_TILES; i++) {
+            if (ucSlaveTileResVec[i] == 1) {
+              ucAllSlavesBusy = 0;
+              break;
+            }
+          }
+          masterTIMEOUT_INFO(xQueueReceive(xDataReqQ, &ulBuffer32, pdMS_TO_TICKS(500)), "TO to recv dummy rows");
+          if (xQueueReceive(xRowReadyQ, &ucRowReady, pdMS_TO_TICKS(0)) == pdPASS) {
+            vprvSendRow(ucRowReady); 
+          }
+          else {
+            // send 0xFF
+            vprvSendNothing(); 
+          }
+        }
+        dbg("\n\r---------DONE-----------");
         break;
       default:
         break;
@@ -287,7 +228,7 @@ static void vprvRecvData (void *pvParameters) {
 
   DMADesc_t xDMARecvData = {
     .SrcAddr  = (uint32_t*)ravenocRD_BUFFER,
-    .DstAddr  = (uint32_t*)&ucDataBuffer,
+    .DstAddr  = (uint32_t*)ucDataBuffer[0],
     .NumBytes = 0,
     .Cfg = {
       .WrMode = DMA_MODE_INCR,
@@ -302,45 +243,25 @@ static void vprvRecvData (void *pvParameters) {
   for (;;) {
     xQueueReceive(xNoCPktFromSlavesQ, &ucSizeSeg, portMAX_DELAY);
     uint8_t xSlaveFree = (ulRaveNoCGetNoCData() & 0xFF);
+    /*dbg("\n\r[vprvRecvData] %d / %d / %d", xSlaveFree, ucRaveNoCGetNoCPktSize(), ucSizeSeg);*/
 
     xDMARecvData.NumBytes = 4*(ucSizeSeg);
+    xDMARecvData.DstAddr = (uint32_t *)ucDataBuffer[xSlaveFree];
 
     xSemaphoreTake(xDMAMutex, portMAX_DELAY);
+    /*dbg("\n\rhere");*/
     vDMASetDescCfg(1, xDMARecvData);
     vDMASetDescGo(1);
+    /*dbg("\n\rThere");*/
     masterTIMEOUT_INFO(xQueueReceive(xDMADoneQ, &ucSizeSeg, pdMS_TO_TICKS(500)), "Timeout DMA");
+    /*dbg("\n\r[vprvRecvData] DONE!");*/
     vRaveNoCIRQAck();
-    // Sum the histogram
-    vprvCalcHistSlave();
     xSemaphoreGive(xDMAMutex);
+
+    masterTIMEOUT_INFO(xQueueSend(xRowReadyQ, &xSlaveFree, pdMS_TO_TICKS(500)), "Timeout DMA");
     // Free-up the slave availability
     /*dbg("\n\rxSlaveFree %d", xSlaveFree);*/
     ucprvSetFreeSlaveTile(xSlaveFree);
-  }
-}
-
-static void vprvWatchDog (void *pvParameters) {
-  for (;;){
-
-    /*dbg("\n\rR/W -> IN=%d/%d - OUT=%d/%d", xEthInfifoPtr().Read, xEthInfifoPtr().Write,*/
-                                           /*xEthOutfifoPtr().Read, xEthOutfifoPtr().Write);*/
-    dbg("\n\r%d-",xTaskGetTickCount());
-    for (size_t i=0; i<masterNOC_TOTAL_TILES; i++)
-      dbg("%d", ucSlaveTileResVec[i]);
-
-    /*TaskStatus_t xTaskDetailsRecvData, xTaskDetailsCopyImg;*/
-    /*vTaskGetInfo(xHandleRecvData, &xTaskDetailsRecvData, pdTRUE, eInvalid);*/
-    /*vTaskGetInfo(xHandleCopyImg, &xTaskDetailsCopyImg, pdTRUE, eInvalid);*/
-
-    /*dbg("\n\r---Tasks---");*/
-    /*dbg("\n\r%s - %d - %d",xTaskDetailsRecvData.pcTaskName,*/
-                           /*xTaskDetailsRecvData.eCurrentState,*/
-                           /*xTaskDetailsRecvData.usStackHighWaterMark);*/
-    /*dbg("\n\r%s - %d - %d",xTaskDetailsCopyImg.pcTaskName,*/
-                           /*xTaskDetailsCopyImg.eCurrentState,*/
-                           /*xTaskDetailsCopyImg.usStackHighWaterMark);*/
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -356,11 +277,7 @@ static void vprvSetEth (void) {
     .Src              = 1234,
     .Dst              = 1234,
     .Len              = 4,
-    /*.IPAddr.bytes     = {192, 168,   1, 141},*/
-    /*.IPAddr.bytes     = {192, 168,   1, 176},*/
     .IPAddr.bytes     = {192, 168,   1, 176},
-    /*.MACAddr.bytes    = {0x00, 0x00, 0x22, 0x20, 0x5c, 0x06, 0x13, 0xb9}*/
-    /*.MACAddr.bytes    = {0x00, 0x00, 0x04, 0x42, 0x1a, 0x09, 0xaf, 0xc7}*/
     .MACAddr.bytes    = {0x00, 0x00, 0xbc, 0x09, 0x1b, 0x98, 0x12, 0x28}
   };
 
@@ -417,15 +334,7 @@ int main (void) {
   xEthSentQ = xQueueCreate(1, sizeof(uint8_t));
   xStartFetchImgQ = xQueueCreate(1, sizeof(CmdType_t));
   xNoCPktFromSlavesQ = xQueueCreate(1, sizeof(uint8_t));
-
-  /*xReturned = xTaskCreate(*/
-    /*vprvWatchDog,*/
-    /*"Watchdog",*/
-    /*configMINIMAL_STACK_SIZE*2U,*/
-    /*NULL,*/
-    /*tskIDLE_PRIORITY+1,*/
-    /*NULL);*/
-  /*masterCHECK_TASK(xReturned);*/
+  xRowReadyQ = xQueueCreate(masterNOC_TOTAL_TILES, sizeof(uint8_t));
 
   xReturned = xTaskCreate(
     vprvRecvData,
@@ -439,7 +348,7 @@ int main (void) {
   xReturned = xTaskCreate(
     vprvCopyImg,
     "Copy image",
-    configMINIMAL_STACK_SIZE*2U,
+    configMINIMAL_STACK_SIZE*4U,
     NULL,
     tskIDLE_PRIORITY+1,
     &xHandleCopyImg);
@@ -475,23 +384,26 @@ void vSystemIrqHandler(uint32_t ulMcause){
       break;
     case(IRQ_ETH_RECV):
       if (xMasterCurStatus == MASTER_STATUS_IDLE) {
-        CmdType_t cmd_type;
-        cmd.st.dim_x = 1;
-        cmd.st.dim_y = 1;
-        cmd_type = CMD_FILTER;
-        /*ulNumPixels = cmd.st.dim_x*cmd.st.dim_y;*/
-        /*dbg("\n\r[CMD] Len=%d / Data=%d / Dim[x]=%d / Dim[y]=%d",*/
-          /*ulEthGetRecvLen(), cmd.st.pkt_type, cmd.st.dim_x, cmd.st.dim_y);*/
-        uint32_t data[4];
+        uint32_t buffer[3];
 
-        for (size_t val=0; val<4; val++) {
-          data[val] = ulEthGetRecvData();
-          dbg("Data[%d]=%x", val, data[val]);
+        for (size_t i=0; i<3; i++) {
+          buffer[i] = ulEthGetRecvData();
         }
 
-        vIRQSetMaskSingle(irqMASK_ETH_RECV);
-        vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);
+        CmdType_t cmd_type = buffer[0];
 
+        ulImageWidth = buffer[1];
+        ulImageHeight = buffer[2];
+
+        switch(cmd_type) {
+          case CMD_FILTER:
+            /*vIRQSetMaskSingle(irqMASK_ETH_RECV);*/
+            /*vIRQClearMaskSingle(irqMASK_ETH_RECV_FULL);*/
+            break;
+          default:
+            dbg("CMD unknown");
+            break;
+        }
         vEthClearInfifoPtr();
 
         xQueueSendFromISR(xStartFetchImgQ, &cmd_type, &xHigherPriorityTaskWoken);
@@ -499,6 +411,14 @@ void vSystemIrqHandler(uint32_t ulMcause){
           portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
       }
+      else { 
+        uint32_t ulLen = ulEthGetRecvLen();
+        xQueueSendFromISR(xDataReqQ, &ulLen, &xHigherPriorityTaskWoken);
+        if(xHigherPriorityTaskWoken == pdTRUE){
+          portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
+      }
+
       vEthClearIRQs();
       break;
     case(IRQ_ETH_RECV_FULL):
@@ -515,7 +435,6 @@ void vSystemIrqHandler(uint32_t ulMcause){
           portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
       }
       vEthClearIRQs();
-      break;
       break;
     default:
       dbg("\n\rMcause: %d", ulMcause);

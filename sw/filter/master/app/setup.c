@@ -55,10 +55,14 @@ void freertos_risc_v_application_interrupt_handler(void) {
 
 /* Handle specific exceptions */
 void freertos_risc_v_application_exception_handler(void) {
-  uint32_t synctrap_cause = 0;
+  uint32_t synctrap_cause = 0, mtval = 0, mepc = 0;
   // debug output - Use the value from the mcause CSR to call exception-specific handlers
   asm volatile("csrr %0,mcause" : "=r"(synctrap_cause));
-  dbg("\n<EXC> mcause = 0x%x </EXC>\n", synctrap_cause);
+  asm volatile("csrr %0,mtval" : "=r"(mtval));
+  asm volatile("csrr %0,mepc" : "=r"(mepc));
+  dbg("\n<EXC> MCAUSE = 0x%x </EXC>\n", synctrap_cause);
+  dbg("\n<EXC> MTVAL = 0x%x </EXC>\n", mtval);
+  dbg("\n<EXC> MEPC = 0x%x </EXC>\n", mepc);
 }
 
 static void prvSetupHardware(void) {

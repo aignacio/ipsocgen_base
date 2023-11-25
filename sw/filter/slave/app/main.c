@@ -22,17 +22,18 @@ TaskHandle_t xProcHandle;
 
 static uint16_t usgSizeSeg;
 
-uint8_t  ucgImgBufferProc [slaveRESERVED_PROC_MEM];
-uint16_t ucgHistbuffer [slaveHISTOGRAM_VEC_SIZE];
+uint8_t  ucgImgBufferProc [PAYLOAD_SIZE];
+uint8_t  ucgFilterbuffer [IMAGE_WIDTH+4];
 uint8_t  ucgRunProcessing = 0;
 
 static void vprvProcessNoCPkts(void *pvParameters) {
   uint8_t ucSegSize;
+  uint32_t test;
 
   DMADesc_t xDMACopySegDesc = {
     .SrcAddr  = (uint32_t*)ravenocRD_BUFFER,
     .DstAddr  = (uint32_t*)&ucgImgBufferProc[0],
-    .NumBytes = 1024,
+    .NumBytes = PAYLOAD_SIZE,
     .Cfg = {
       .WrMode = DMA_MODE_INCR,
       .RdMode = DMA_MODE_FIXED,
@@ -46,30 +47,43 @@ static void vprvProcessNoCPkts(void *pvParameters) {
   for(;;) {
     xQueueReceive(xNoCMailboxQ, &ucSegSize, portMAX_DELAY);
     ucgRunProcessing = 1;
+    test = ulRaveNoCGetNoCData();
+    dbg("\n\r%x",test);
     // Launch the DMA for descriptor 0 only
     // Copy from the NoC buffer into our local DRAM memory buffer
     vDMASetDescGo(0);
   }
 }
 
-static void vprvZeroHist (void) {
-  for (size_t i=0; i<slaveHISTOGRAM_VEC_SIZE; i++) {
-    ucgHistbuffer[i] = 0x00;
-  }
-}
+static void vprvCalcFilter (uint16_t usSize) {
+  uint32_t sum;
 
-static void vprvCalcHist (uint16_t usSize) {
-  for (size_t i=4; i<usSize; i++) {
-    ucgHistbuffer[ucgImgBufferProc[i]] += 1;
+  for (size_t i=0; i<4; i++) {
+    ucgFilterbuffer[i] = ucgImgBufferProc[i];
+  }
+  
+  for (size_t pixel=0; pixel<IMAGE_WIDTH; pixel++){
+    sum = 0;
+    /*dbg("Pixel %d\n\r", pixel);*/
+    for (size_t row=0; row<3; row++) { // 3x rows per packet
+      for (size_t j=0; j<3; j++){ // cols
+        uint16_t index = 4+pixel+(row*(IMAGE_WIDTH+2))+j;
+        sum += ucgImgBufferProc[index]; 
+        /*dbg("[%d]",index);*/
+      }
+      /*dbg("\n\r");*/
+    }
+    sum = sum/9;
+    ucgFilterbuffer[4+pixel] = (uint8_t *)sum;
   }
 }
 
 static void vprvImgSeg(void *pvParameters) {
   uint16_t usBuffer16;
   DMADesc_t xDMASendHistDesc = {
-    .SrcAddr  = (uint32_t*)&ucgHistbuffer,
+    .SrcAddr  = (uint32_t*)&ucgFilterbuffer,
     .DstAddr  = (uint32_t*)ravenocWR_BUFFER,
-    .NumBytes = 512,
+    .NumBytes = IMAGE_WIDTH+4,
     .Cfg = {
       .WrMode = DMA_MODE_FIXED,
       .RdMode = DMA_MODE_INCR,
@@ -80,23 +94,15 @@ static void vprvImgSeg(void *pvParameters) {
   // Program the descriptor 1 to copy histogram from DRAM memory to the NoC
   vDMASetDescCfg(1, xDMASendHistDesc);
 
-  // Initialize histogram with zeros
-  vprvZeroHist();
-
   for (;;) {
     xQueueReceive(xPktProcQ, &usBuffer16, portMAX_DELAY);
     vRaveNoCIRQAck();
     //Start processing the image segment
-    vprvCalcHist(usgSizeSeg);
-    // Each local histogram pixel is 16 bits (because max value could be 1024)
-    // thus we have the following calcs:
-    // 2-bytes per histogram pixel * 256 possible values = 512 bytes
-    vRaveNoCSendNoCMsg(0, 512>>2, ucRaveNoCGetTileID());
+    vprvCalcFilter(usgSizeSeg);
+    vRaveNoCSendNoCMsg(0, (IMAGE_WIDTH+4) >> 2, ucRaveNoCGetTileID());
     vDMASetDescGo(1);
     // Wait DMA to finish...
     xQueueReceive(xDMAQ, &usBuffer16, portMAX_DELAY);
-    // Zero the histogram again
-    vprvZeroHist();
   }
 }
 

@@ -275,6 +275,10 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
       std::cerr << "Failed to receive data!" << endl;
 
     vector<unsigned char> charVectorImg(buffer, buffer + sizeof(buffer) / sizeof(buffer[0]));
+    
+    if (charVectorImg[0] == 0xFF)
+      return charVector;
+  
     return charVectorImg;
   }
   else {
@@ -285,13 +289,24 @@ vector<unsigned char> sendViaUDP(std::vector<unsigned char> msg, bool wait_answe
 cv::Mat sendImgSegments(const cv::Mat& image) {
   vector<vector<unsigned char>> rows_split = splitImageRows(image);
   vector<vector<unsigned char>> processed_image;
-
-  for (size_t i=0; i<CAM_HEIGHT; i++) {
-    if (i < CAM_HEIGHT) {
-      //cout << "Sending segments [" << i*3 << "," << ((i*3)+2) << "] of the image" << endl;
-      processed_image.push_back(sendViaUDP(rows_split[i], true));
+  vector<unsigned char> temp;
+  vector<unsigned char> dummy = {{0}};
+ 
+  double loops = 0;
+  while(processed_image.size() < 240) {
+    if (loops < CAM_HEIGHT) {
+      temp = sendViaUDP(rows_split[loops], true);
     }
+    else {
+      temp = sendViaUDP(dummy, true);
+    }
+   
+    if (temp.size() == 324) 
+      processed_image.push_back(temp);
+    //cout << "p " << processed_image.size() << endl; 
+    loops++;
   }
+
   return reassembleImage(processed_image, CAM_WIDTH, CAM_HEIGHT);
 }
 

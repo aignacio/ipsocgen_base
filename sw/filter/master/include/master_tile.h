@@ -21,13 +21,16 @@
 
 // [Hardware settings]
 #define masterNOC_CMD_PKT_SIZE        0
-#define masterNOC_SIZE_X              3
-#define masterNOC_SIZE_Y              3
-#define masterNOC_TOTAL_TILES         9
+#define masterNOC_SIZE_X              2
+#define masterNOC_SIZE_Y              2
+#define masterNOC_TOTAL_TILES         4
 #define masterHW_CLK_SPEED_HZ         50000000
 #define masterUART_BAUD_RATE          115200
 #define masterETH_PKT_SIZE_BYTES      1024
 
+#define IMAGE_WIDTH                   320
+#define IMAGE_HEIGHT                  240
+#define SEGMENT_SIZE                  ((3*(IMAGE_WIDTH+2))+4+2)
 // [Macro functions]
 #define masterCHECK_TASK(X)           if(X == pdFALSE) {                            \
                                         dbg("\n\r[FATAL] Cannot create the task!"); \

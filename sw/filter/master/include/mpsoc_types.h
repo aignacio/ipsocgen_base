@@ -13,8 +13,8 @@ typedef enum {
 
 typedef enum {
   CMD_NONE       = 0,
-  CMD_HISTOGRAM  = 1,
-  CMD_FILTER     = 2,
+  CMD_HISTOGRAM  = 2,
+  CMD_FILTER     = 1,
   CMD_GET_RESULT = 3
 } CmdType_t;
 

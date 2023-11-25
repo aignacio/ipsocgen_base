@@ -116,7 +116,7 @@ set(CMAKE_EXE_LINKER_FLAGS
 set(FREERTOS_PORT "GCC_RISC_V" CACHE STRING "")
 set(FREERTOS_CONFIG_FILE_DIRECTORY "${CMAKE_SOURCE_DIR}/include" CACHE STRING "")
 set(FREERTOS_HEAP "4" CACHE STRING "")
-add_subdirectory(libs/FreeRTOS-Kernel_latest)
+add_subdirectory(libs/FreeRTOS-Kernel)
 
 # Shared sources, includes and definitions
 add_compile_definitions(${TARGET_C_DEFINES})

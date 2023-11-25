@@ -18,13 +18,16 @@
 
 // [Hardware settings]
 #define slaveNOC_CMD_PKT_SIZE         0
-#define slaveNOC_SIZE_X               3
-#define slaveNOC_SIZE_Y               3
-#define slaveNOC_TOTAL_TILES          9
+#define slaveNOC_SIZE_X               2
+#define slaveNOC_SIZE_Y               2
+#define slaveNOC_TOTAL_TILES          4
 #define slaveHW_CLK_SPEED_HZ          50000000
 #define slaveUART_BAUD_RATE           115200
 #define slaveRESERVED_PROC_MEM        1024
 #define slaveHISTOGRAM_VEC_SIZE       256
+#define IMAGE_WIDTH                   320
+#define NOC_HEADER                    4
+#define PAYLOAD_SIZE                  ((3*(IMAGE_WIDTH+2))+4+2)
 
 // [Macro functions]
 #define slaveCHECK_TASK(X)            if(X == pdFALSE) {                            \
