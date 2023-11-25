@@ -349,6 +349,7 @@ void plotFilter() {
     cv::Mat image_filtered_host;
     cv::blur(image, image_filtered_host, cv::Size(3, 3));
     cv::imshow("Filtered Image - Host", image_filtered_host);
+    cv::imshow("Grayscale image - Host", image);
   }
   destroyAllWindows();
 }
